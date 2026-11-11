@@ -5,8 +5,6 @@ import androidx.navigation3.runtime.NavKey
 import app.reliquary.core.designsystem.icon.ReliquaryIcons
 import kotlinx.serialization.Serializable
 
-@Serializable data object Onboarding : NavKey
-
 @Serializable data object Home : NavKey
 @Serializable data object Channels : NavKey
 @Serializable data object Playlists : NavKey

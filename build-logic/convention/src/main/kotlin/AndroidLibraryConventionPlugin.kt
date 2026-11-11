@@ -19,6 +19,8 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
+            // Android stubs (e.g. android.util.Log used by libraries) return defaults in JVM tests.
+            testOptions.unitTests.isReturnDefaultValues = true
         }
         configureKotlin()
         addUnitTestDependencies()
