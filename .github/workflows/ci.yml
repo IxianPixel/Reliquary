@@ -36,6 +36,12 @@ jobs:
       - name: Build, unit tests and lint
         run: ./gradlew assembleDebug testDebugUnitTest :core:model:test lintDebug --console=plain
 
+      # Release (R8) build only for PRs into master: catches release-only failures
+      # before they reach the protected branch without slowing pushes to develop.
+      - name: Release build
+        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'master' }}
+        run: ./gradlew assembleRelease --console=plain
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
