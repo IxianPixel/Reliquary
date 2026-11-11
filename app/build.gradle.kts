@@ -15,6 +15,11 @@ android {
     }
 
     buildTypes {
+        // Installs next to a release build, labelled "Reliquary Debug" (src/debug/res).
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
