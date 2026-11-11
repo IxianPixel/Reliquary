@@ -1,0 +1,6 @@
+<resources>
+    <!-- Catppuccin Mocha Base. -->
+    <style name="Theme.Reliquary" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1E1E2E</item>
+    </style>
+</resources>
