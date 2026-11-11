@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "app.reliquary.buildlogic"
+group = "com.malgra.reliquary.buildlogic"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

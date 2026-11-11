@@ -6,10 +6,10 @@ plugins {
 }
 
 android {
-    namespace = "app.reliquary"
+    namespace = "com.malgra.reliquary"
 
     defaultConfig {
-        applicationId = "app.reliquary"
+        applicationId = "com.malgra.reliquary"
         versionCode = 1
         versionName = "0.1.0"
     }
