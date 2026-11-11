@@ -6,10 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import com.malgra.reliquary.core.model.Channel
+import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.Video
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -37,6 +39,7 @@ class PlayerViewModel @AssistedInject constructor(
     @Assisted val videoId: String,
     private val videos: VideoRepository,
     private val progress: ProgressRepository,
+    private val downloads: DownloadRepository,
     channels: ChannelRepository,
 ) : ViewModel() {
 
@@ -62,7 +65,20 @@ class PlayerViewModel @AssistedInject constructor(
     suspend fun playbackRequest(): PlaybackRequest? {
         val video = withTimeoutOrNull(LOAD_TIMEOUT_MS) { this@PlayerViewModel.video.filterNotNull().first() }
             ?: return null
-        return PlaybackRequest(video.toMediaItem(), progress.resumePosition(videoId).inWholeMilliseconds)
+        // A downloaded copy plays without the server.
+        val local = downloads.localFile(videoId)?.let(Uri::fromFile)
+        return PlaybackRequest(video.toMediaItem(local), progress.resumePosition(videoId).inWholeMilliseconds)
+    }
+
+    val download: StateFlow<Download?> = downloads.download(videoId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun startDownload() {
+        viewModelScope.launch { downloads.start(videoId) }
+    }
+
+    fun removeDownload() {
+        viewModelScope.launch { downloads.remove(videoId) }
     }
 
     fun setWatched(watched: Boolean) {
@@ -74,8 +90,9 @@ class PlayerViewModel @AssistedInject constructor(
     }
 }
 
-internal fun Video.toMediaItem(): MediaItem {
-    val uri: Uri = mediaUrl.toUri()
+/** [localFile] replaces the server URL when the video is downloaded. */
+internal fun Video.toMediaItem(localFile: Uri? = null): MediaItem {
+    val uri: Uri = localFile ?: mediaUrl.toUri()
     return MediaItem.Builder()
         .setMediaId(id)
         .setUri(uri)

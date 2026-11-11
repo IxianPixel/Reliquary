@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_empty">Nothing downloaded yet. Open a video and tap Download to watch it without a connection.</string>
+    <plurals name="downloads_pending_sync">
+        <item quantity="one">%d progress update waiting to sync</item>
+        <item quantity="other">%d progress updates waiting to sync</item>
+    </plurals>
+    <string name="downloads_on_device">On this device · %s</string>
+    <string name="downloads_waiting">Waiting for a connection</string>
+    <string name="downloads_failed">Download failed. Open the video to try again.</string>
+    <string name="downloads_percent">%d%%</string>
+    <string name="downloads_missing_video">Video details aren’t cached</string>
+    <string name="downloads_remove">Remove download</string>
+    <string name="downloads_cancel">Cancel download</string>
+    <string name="downloads_remove_title">Remove download?</string>
+    <string name="downloads_remove_body">“%s” stays on your server. You’ll need a connection to watch it again.</string>
+    <string name="downloads_remove_confirm">Remove</string>
+    <string name="downloads_keep">Keep</string>
+</resources>

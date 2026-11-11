@@ -17,31 +17,42 @@ import com.malgra.reliquary.core.database.entity.VideoEntity
 import com.malgra.reliquary.core.database.entity.VideoWithPending
 import kotlinx.coroutines.flow.Flow
 
-/** Columns for [VideoWithPending]: the video plus its pending progress, if any. */
+/** Columns for [VideoWithPending]: the video, its pending progress and its download, if any. */
 internal const val VIDEO_WITH_PENDING = """
     video.*,
     pending_progress.videoId AS pending_videoId,
     pending_progress.positionSeconds AS pending_positionSeconds,
     pending_progress.watched AS pending_watched,
     pending_progress.updatedAtMillis AS pending_updatedAtMillis,
-    pending_progress.sessionStartedAtMillis AS pending_sessionStartedAtMillis
+    pending_progress.sessionStartedAtMillis AS pending_sessionStartedAtMillis,
+    download.videoId AS download_videoId,
+    download.state AS download_state,
+    download.bytesDownloaded AS download_bytesDownloaded,
+    download.totalBytes AS download_totalBytes,
+    download.createdAtMillis AS download_createdAtMillis
+"""
+
+/** Joins for [VIDEO_WITH_PENDING]; follows `FROM video` or a join onto video. */
+internal const val VIDEO_JOINS = """
+    LEFT JOIN pending_progress ON pending_progress.videoId = video.id
+    LEFT JOIN download ON download.videoId = video.id
 """
 
 @Dao
 interface VideoDao {
     @Upsert suspend fun upsert(videos: List<VideoEntity>)
 
-    @Query("SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id WHERE video.id = :id")
+    @Query("SELECT $VIDEO_WITH_PENDING FROM video $VIDEO_JOINS WHERE video.id = :id")
     fun observe(id: String): Flow<VideoWithPending?>
 
-    @Query("SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id WHERE video.id = :id")
+    @Query("SELECT $VIDEO_WITH_PENDING FROM video $VIDEO_JOINS WHERE video.id = :id")
     suspend fun get(id: String): VideoWithPending?
 
     @Query(
         """
         SELECT $VIDEO_WITH_PENDING FROM listing_item
         JOIN video ON video.id = listing_item.itemId
-        LEFT JOIN pending_progress ON pending_progress.videoId = video.id
+        $VIDEO_JOINS
         WHERE listing_item.listKey = :listKey ORDER BY listing_item.position
         """,
     )
@@ -51,7 +62,7 @@ interface VideoDao {
         """
         SELECT $VIDEO_WITH_PENDING FROM listing_item
         JOIN video ON video.id = listing_item.itemId
-        LEFT JOIN pending_progress ON pending_progress.videoId = video.id
+        $VIDEO_JOINS
         WHERE listing_item.listKey = :listKey ORDER BY listing_item.position
         """,
     )
@@ -60,7 +71,7 @@ interface VideoDao {
     /** Offline fallback for search: a plain substring match on cached rows. */
     @Query(
         """
-        SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id
+        SELECT $VIDEO_WITH_PENDING FROM video $VIDEO_JOINS
         WHERE title LIKE '%' || :query || '%' OR channelName LIKE '%' || :query || '%'
         ORDER BY addedEpochSeconds DESC LIMIT :limit
         """,

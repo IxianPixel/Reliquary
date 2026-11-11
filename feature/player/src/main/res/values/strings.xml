@@ -18,6 +18,16 @@
     <string name="player_pending_note">Your place is saved on this device. It syncs when the server can be reached.</string>
     <string name="player_error">Can’t play this video</string>
     <string name="player_not_found">This video isn’t on this device yet. Connect to your server to load it.</string>
+    <string name="player_download">Download</string>
+    <string name="player_download_retry">Retry download</string>
+    <string name="player_download_waiting">Waiting to download</string>
+    <string name="player_downloading">Downloading %d%%</string>
+    <string name="player_downloading_unknown">Downloading</string>
+    <string name="player_downloaded">Downloaded</string>
+    <string name="player_remove_download_title">Remove download?</string>
+    <string name="player_remove_download_body">The video stays on your server. You’ll need a connection to watch it again.</string>
+    <string name="player_remove">Remove</string>
+    <string name="player_keep">Keep</string>
     <string name="mini_player_open">Open player: %s</string>
     <string name="mini_player_close">Stop playback</string>
 </resources>

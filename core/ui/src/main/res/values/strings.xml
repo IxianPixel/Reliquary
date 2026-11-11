@@ -30,4 +30,12 @@
     <string name="ui_refresh_failed">Couldn’t refresh. Showing what’s saved.</string>
     <string name="ui_load_more_failed">Couldn’t load more</string>
     <string name="ui_loading">Loading</string>
+
+    <string name="ui_video_options">More options</string>
+    <string name="ui_menu_download">Download</string>
+    <string name="ui_menu_cancel_download">Cancel download</string>
+    <string name="ui_menu_remove_download">Remove download</string>
+    <string name="ui_menu_mark_watched">Mark watched</string>
+    <string name="ui_menu_mark_unwatched">Mark unwatched</string>
+    <string name="ui_downloaded">Downloaded</string>
 </resources>

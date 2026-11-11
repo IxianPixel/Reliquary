@@ -28,7 +28,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -77,6 +81,8 @@ import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.designsystem.theme.Catppuccin
 import com.malgra.reliquary.core.designsystem.theme.OverlayColors
 import com.malgra.reliquary.core.model.Channel
+import com.malgra.reliquary.core.model.Download
+import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.ui.ChannelAvatar
 import com.malgra.reliquary.core.ui.R as UiR
@@ -109,6 +115,7 @@ fun PlayerScreen(
 ) {
     val video by viewModel.video.collectAsStateWithLifecycle()
     val channel by viewModel.channel.collectAsStateWithLifecycle()
+    val download by viewModel.download.collectAsStateWithLifecycle()
     var unavailable by remember { mutableStateOf(false) }
 
     // Load this video unless it's already the one playing (e.g. opened from the mini-player).
@@ -171,6 +178,9 @@ fun PlayerScreen(
             video != null -> Details(
                 video = video!!,
                 channel = channel,
+                download = download,
+                onDownload = viewModel::startDownload,
+                onRemoveDownload = viewModel::removeDownload,
                 onSetWatched = { watched ->
                     if (watched) controller?.pause()
                     viewModel.setWatched(watched)
@@ -420,6 +430,9 @@ private fun SeekBar(
 private fun Details(
     video: Video,
     channel: Channel?,
+    download: Download?,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onSetWatched: (Boolean) -> Unit,
     onOpenChannel: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -450,19 +463,19 @@ private fun Details(
             }
         }
         item(key = "actions") {
-            ToggleButton(
-                checked = video.watched,
-                onCheckedChange = onSetWatched,
-            ) {
-                Icon(
-                    painterResource(ReliquaryIcons.CheckCircle),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    stringResource(if (video.watched) R.string.player_watched else R.string.player_mark_watched),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DownloadButton(download, onDownload, onRemoveDownload)
+                ToggleButton(checked = video.watched, onCheckedChange = onSetWatched) {
+                    Icon(
+                        painterResource(ReliquaryIcons.CheckCircle),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(if (video.watched) R.string.player_watched else R.string.player_mark_watched),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
         if (video.channelId.isNotEmpty()) {
@@ -488,6 +501,57 @@ private fun Details(
                 )
             }
         }
+    }
+}
+
+/** Download, progress (tap to cancel), or Downloaded (tap to remove, after asking). */
+@Composable
+private fun DownloadButton(download: Download?, onDownload: () -> Unit, onRemove: () -> Unit) {
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    val iconModifier = Modifier.size(18.dp)
+    when (download?.status) {
+        DownloadStatus.Completed -> FilledTonalButton(onClick = { confirmRemove = true }) {
+            Icon(painterResource(ReliquaryIcons.Check), contentDescription = null, modifier = iconModifier)
+            Text(stringResource(R.string.player_downloaded), modifier = Modifier.padding(start = 8.dp))
+        }
+        DownloadStatus.Queued, DownloadStatus.Downloading, DownloadStatus.Paused -> {
+            // The cross and the label say it: tapping cancels.
+            OutlinedButton(onClick = onRemove) {
+                Icon(painterResource(ReliquaryIcons.Close), contentDescription = null, modifier = iconModifier)
+                val percent = download.fraction?.let { (it * 100).toInt() }
+                Text(
+                    when {
+                        download.status != DownloadStatus.Downloading -> stringResource(R.string.player_download_waiting)
+                        percent != null -> stringResource(R.string.player_downloading, percent)
+                        else -> stringResource(R.string.player_downloading_unknown)
+                    },
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+        DownloadStatus.Failed, null -> OutlinedButton(onClick = onDownload) {
+            Icon(painterResource(ReliquaryIcons.Downloads), contentDescription = null, modifier = iconModifier)
+            Text(
+                stringResource(if (download == null) R.string.player_download else R.string.player_download_retry),
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text(stringResource(R.string.player_remove_download_title)) },
+            text = { Text(stringResource(R.string.player_remove_download_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = false
+                    onRemove()
+                }) { Text(stringResource(R.string.player_remove)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.player_keep)) }
+            },
+        )
     }
 }
 

@@ -11,6 +11,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -24,6 +25,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.malgra.reliquary.core.data.session.SessionState
+import com.malgra.reliquary.core.ui.LocalVideoActions
 import com.malgra.reliquary.feature.channels.ChannelScreen
 import com.malgra.reliquary.feature.channels.ChannelsScreen
 import com.malgra.reliquary.feature.downloads.DownloadsScreen
@@ -68,6 +70,7 @@ private fun MainShell() {
     val onPlayer = backStack.lastOrNull() is Player
     // One connection to the playback service, shared by the player and the mini-player.
     val controller = rememberMediaController()
+    val videoActions: VideoActionsViewModel = hiltViewModel()
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -87,63 +90,65 @@ private fun MainShell() {
             NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
         },
     ) {
-        Column(Modifier.fillMaxSize()) {
-            NavDisplay(
-                backStack = backStack,
-                onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
-                entryDecorators = listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator(),
-                ),
-                modifier = Modifier.weight(1f),
-                entryProvider = entryProvider {
-                    val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
-                    val openVideo: (String) -> Unit = { backStack.add(Player(it)) }
-                    val openChannel: (String) -> Unit = { backStack.add(ChannelDetail(it)) }
-                    val openPlaylist: (String) -> Unit = { backStack.add(PlaylistDetail(it)) }
+        CompositionLocalProvider(LocalVideoActions provides videoActions) {
+            Column(Modifier.fillMaxSize()) {
+                NavDisplay(
+                    backStack = backStack,
+                    onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                    entryDecorators = listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator(),
+                    ),
+                    modifier = Modifier.weight(1f),
+                    entryProvider = entryProvider {
+                        val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+                        val openVideo: (String) -> Unit = { backStack.add(Player(it)) }
+                        val openChannel: (String) -> Unit = { backStack.add(ChannelDetail(it)) }
+                        val openPlaylist: (String) -> Unit = { backStack.add(PlaylistDetail(it)) }
 
-                    entry<Home> {
-                        HomeScreen(
-                            onOpenSearch = { backStack.add(Search) },
-                            onOpenSettings = { backStack.add(Settings) },
-                            onOpenVideo = openVideo,
-                        )
-                    }
-                    entry<Channels> { ChannelsScreen(onOpenChannel = openChannel) }
-                    entry<ChannelDetail> { key ->
-                        ChannelScreen(
-                            channelId = key.channelId,
-                            onBack = back,
-                            onOpenVideo = openVideo,
-                            onOpenPlaylist = openPlaylist,
-                        )
-                    }
-                    entry<Playlists> { PlaylistsScreen(onOpenPlaylist = openPlaylist) }
-                    entry<PlaylistDetail> { key ->
-                        PlaylistScreen(playlistId = key.playlistId, onBack = back, onOpenVideo = openVideo)
-                    }
-                    entry<Downloads> { DownloadsScreen() }
-                    entry<Search> {
-                        SearchScreen(
-                            onBack = back,
-                            onOpenVideo = openVideo,
-                            onOpenChannel = openChannel,
-                            onOpenPlaylist = openPlaylist,
-                        )
-                    }
-                    entry<Settings> { SettingsScreen() }
-                    entry<Player> { key ->
-                        PlayerScreen(
-                            videoId = key.videoId,
-                            controller = controller,
-                            onBack = back,
-                            onOpenChannel = openChannel,
-                        )
-                    }
-                },
-            )
-            if (!onPlayer && controller != null) {
-                MiniPlayer(player = controller, onOpen = { id -> backStack.openPlayer(id) })
+                        entry<Home> {
+                            HomeScreen(
+                                onOpenSearch = { backStack.add(Search) },
+                                onOpenSettings = { backStack.add(Settings) },
+                                onOpenVideo = openVideo,
+                            )
+                        }
+                        entry<Channels> { ChannelsScreen(onOpenChannel = openChannel) }
+                        entry<ChannelDetail> { key ->
+                            ChannelScreen(
+                                channelId = key.channelId,
+                                onBack = back,
+                                onOpenVideo = openVideo,
+                                onOpenPlaylist = openPlaylist,
+                            )
+                        }
+                        entry<Playlists> { PlaylistsScreen(onOpenPlaylist = openPlaylist) }
+                        entry<PlaylistDetail> { key ->
+                            PlaylistScreen(playlistId = key.playlistId, onBack = back, onOpenVideo = openVideo)
+                        }
+                        entry<Downloads> { DownloadsScreen(onOpenVideo = openVideo) }
+                        entry<Search> {
+                            SearchScreen(
+                                onBack = back,
+                                onOpenVideo = openVideo,
+                                onOpenChannel = openChannel,
+                                onOpenPlaylist = openPlaylist,
+                            )
+                        }
+                        entry<Settings> { SettingsScreen() }
+                        entry<Player> { key ->
+                            PlayerScreen(
+                                videoId = key.videoId,
+                                controller = controller,
+                                onBack = back,
+                                onOpenChannel = openChannel,
+                            )
+                        }
+                    },
+                )
+                if (!onPlayer && controller != null) {
+                    MiniPlayer(player = controller, onOpen = { id -> backStack.openPlayer(id) })
+                }
             }
         }
     }

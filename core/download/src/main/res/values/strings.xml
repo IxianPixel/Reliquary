@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel">Downloads</string>
+    <string name="download_channel_description">Progress of videos being saved to this device</string>
+    <string name="download_notification_title">Downloading %s</string>
+</resources>

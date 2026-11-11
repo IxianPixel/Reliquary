@@ -27,7 +27,11 @@ data class Video(
     val position: Duration,
     /** True while a position or watched change made here hasn't reached the server. */
     val syncPending: Boolean = false,
+    /** Null when the video isn't downloaded or being downloaded. */
+    val download: DownloadStatus? = null,
 ) {
+    val isDownloaded: Boolean get() = download == DownloadStatus.Completed
+
     /** 0..1, or null when there is no position to show. */
     val progress: Float?
         get() = if (watched || position <= Duration.ZERO || duration <= Duration.ZERO) {
@@ -118,3 +122,19 @@ data class WatchProgress(
 )
 
 enum class DownloadStatus { Queued, Downloading, Paused, Completed, Failed }
+
+/** A video saved, or being saved, to this device. */
+data class Download(
+    val videoId: String,
+    val status: DownloadStatus,
+    val bytesDownloaded: Long,
+    /** 0 when not known yet. */
+    val totalBytes: Long,
+) {
+    /** 0..1, or null while the size isn't known. */
+    val fraction: Float?
+        get() = if (totalBytes > 0) (bytesDownloaded.toFloat() / totalBytes).coerceIn(0f, 1f) else null
+}
+
+/** A download with its video, for the Downloads tab. [video] is null if it's no longer cached. */
+data class DownloadedVideo(val download: Download, val video: Video?)

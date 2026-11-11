@@ -1,6 +1,19 @@
 package com.malgra.reliquary.core.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,6 +75,42 @@ fun watchStateText(video: Video): String? = when {
 }
 
 /**
+ * Tap opens the video; long press opens its menu, when the shell provides
+ * [LocalVideoActions]. Rows also show a ⋮ button for the same menu.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.videoClicks(
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    longClickLabel: String,
+    haptics: HapticFeedback,
+): Modifier = combinedClickable(
+    onClick = onClick,
+    onLongClickLabel = longClickLabel.takeIf { onLongClick != null },
+    onLongClick = onLongClick?.let { open ->
+        {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            open()
+        }
+    },
+)
+
+/** The ⋮ button and the menu it (or a long press on the row) opens. */
+@Composable
+private fun MenuButton(video: Video, actions: VideoActions, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
+    Box {
+        IconButton(onClick = { onExpandedChange(true) }) {
+            Icon(
+                painterResource(ReliquaryIcons.More),
+                contentDescription = stringResource(R.string.ui_video_options),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        VideoMenu(video, actions, expanded, onDismiss = { onExpandedChange(false) })
+    }
+}
+
+/**
  * A video as a row: thumbnail on the left, title and details on the right.
  * [showChannel] is off inside a channel's own list.
  */
@@ -72,12 +121,19 @@ fun VideoListItem(
     modifier: Modifier = Modifier,
     showChannel: Boolean = true,
 ) {
+    val actions = LocalVideoActions.current
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .videoClicks(
+                onClick = onClick,
+                onLongClick = actions?.let { { menuOpen = true } },
+                longClickLabel = stringResource(R.string.ui_video_options),
+                haptics = LocalHapticFeedback.current,
+            )
             .alpha(if (video.watched) WATCHED_ALPHA else 1f)
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
+            .padding(start = 16.dp, end = if (actions != null) 0.dp else 16.dp, top = 6.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -85,6 +141,7 @@ fun VideoListItem(
             url = video.thumbnailUrl,
             duration = video.duration,
             progress = video.progress,
+            downloaded = video.isDownloaded,
             modifier = Modifier.size(width = 152.dp, height = 86.dp),
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -98,32 +155,44 @@ fun VideoListItem(
             }
             second?.let { Meta(it) }
         }
+        if (actions != null) MenuButton(video, actions, menuOpen) { menuOpen = it }
     }
 }
 
-/** A wide card for the "Continue watching" carousel. */
+/** A wide card for the "Continue watching" carousel; long press for its menu. */
 @Composable
 fun VideoCard(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    // Not clipped to the thumbnail's 20dp corners: that would shave the first
-    // letter off the last line of text.
-    Column(
-        modifier = modifier
-            .width(264.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        VideoThumbnail(
-            url = video.thumbnailUrl,
-            duration = video.duration,
-            progress = video.progress,
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.size(width = 264.dp, height = 149.dp),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            VideoTitle(video.title)
-            Meta(metaLine(video.channelName, watchStateText(video)))
+    val actions = LocalVideoActions.current
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        // Not clipped to the thumbnail's 20dp corners: that would shave the first
+        // letter off the last line of text.
+        Column(
+            modifier = Modifier
+                .width(264.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .videoClicks(
+                    onClick = onClick,
+                    onLongClick = actions?.let { { menuOpen = true } },
+                    longClickLabel = stringResource(R.string.ui_video_options),
+                    haptics = LocalHapticFeedback.current,
+                ),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            VideoThumbnail(
+                url = video.thumbnailUrl,
+                duration = video.duration,
+                progress = video.progress,
+                shape = RoundedCornerShape(20.dp),
+                downloaded = video.isDownloaded,
+                modifier = Modifier.size(width = 264.dp, height = 149.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                VideoTitle(video.title)
+                Meta(metaLine(video.channelName, watchStateText(video)))
+            }
         }
+        if (actions != null) VideoMenu(video, actions, menuOpen, onDismiss = { menuOpen = false })
     }
 }
 
@@ -135,12 +204,19 @@ fun NumberedVideoItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val actions = LocalVideoActions.current
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .videoClicks(
+                onClick = onClick,
+                onLongClick = actions?.let { { menuOpen = true } },
+                longClickLabel = stringResource(R.string.ui_video_options),
+                haptics = LocalHapticFeedback.current,
+            )
             .alpha(if (video.watched) WATCHED_ALPHA else 1f)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(start = 16.dp, end = if (actions != null) 0.dp else 16.dp, top = 6.dp, bottom = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -158,11 +234,13 @@ fun NumberedVideoItem(
             progress = video.progress,
             shape = RoundedCornerShape(10.dp),
             compact = true,
+            downloaded = video.isDownloaded,
             modifier = Modifier.size(width = 112.dp, height = 63.dp),
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             VideoTitle(video.title, compact = true)
             watchStateText(video)?.let { Meta(it) }
         }
+        if (actions != null) MenuButton(video, actions, menuOpen) { menuOpen = it }
     }
 }

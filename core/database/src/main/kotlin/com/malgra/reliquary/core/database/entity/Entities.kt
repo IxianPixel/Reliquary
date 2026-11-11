@@ -104,10 +104,11 @@ data class PendingProgressEntity(
     val sessionStartedAtMillis: Long,
 )
 
-/** A video with any unsynced local progress over it. */
+/** A video with any unsynced local progress over it, and its download if it has one. */
 data class VideoWithPending(
     @Embedded val video: VideoEntity,
     @Embedded(prefix = "pending_") val pending: PendingProgressEntity?,
+    @Embedded(prefix = "download_") val download: DownloadEntity? = null,
 )
 
 /** A video saved (or being saved) to this device. [state] is a DownloadStatus name. */
