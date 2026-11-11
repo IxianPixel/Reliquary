@@ -75,7 +75,9 @@ data class ChannelDto(
     @SerialName("channel_banner_url") val channelBannerUrl: String? = null,
     @SerialName("channel_thumb_url") val channelThumbUrl: String? = null,
     @SerialName("channel_tvart_url") val channelTvartUrl: String? = null,
+    @Serializable(with = OptionalTextSerializer::class)
     @SerialName("channel_description") val channelDescription: String? = null,
+    @Serializable(with = OptionalTextSerializer::class)
     @SerialName("channel_last_refresh") val channelLastRefresh: String? = null,
     @SerialName("channel_subs") val channelSubs: Long = 0,
     @SerialName("channel_subscribed") val channelSubscribed: Boolean = false,
@@ -136,6 +138,7 @@ data class VideoDto(
     val title: String,
     val active: Boolean = true,
     val channel: ChannelDto? = null,
+    @Serializable(with = OptionalTextSerializer::class)
     val description: String? = null,
     val published: String = "",
     @SerialName("date_downloaded") val dateDownloaded: Long = 0,
@@ -155,10 +158,13 @@ data class VideoDto(
     @SerialName("comment_count") val commentCount: Int? = null,
 )
 
+/** [title] is null for an entry the server never archived, e.g. a video since deleted from YouTube. */
 @Serializable
 data class PlaylistEntryDto(
     @SerialName("youtube_id") val youtubeId: String,
-    val title: String,
+    @Serializable(with = OptionalTextSerializer::class)
+    val title: String? = null,
+    @Serializable(with = OptionalTextSerializer::class)
     val uploader: String? = null,
     val idx: Int,
     val downloaded: Boolean,
@@ -170,6 +176,7 @@ data class PlaylistDto(
     @SerialName("playlist_name") val playlistName: String,
     @SerialName("playlist_channel") val playlistChannel: String = "",
     @SerialName("playlist_channel_id") val playlistChannelId: String = "",
+    @Serializable(with = OptionalTextSerializer::class)
     @SerialName("playlist_description") val playlistDescription: String? = null,
     @SerialName("playlist_entries") val playlistEntries: List<PlaylistEntryDto> = emptyList(),
     @SerialName("playlist_thumbnail") val playlistThumbnail: String = "",
@@ -177,6 +184,7 @@ data class PlaylistDto(
     @SerialName("playlist_subscribed") val playlistSubscribed: Boolean = false,
     @SerialName("playlist_active") val playlistActive: Boolean = true,
     @SerialName("playlist_sort_order") val playlistSortOrder: String = "top",
+    @Serializable(with = OptionalTextSerializer::class)
     @SerialName("playlist_last_refresh") val playlistLastRefresh: String? = null,
 )
 
@@ -185,3 +193,22 @@ data class ProgressRequest(val position: Double)
 
 @Serializable
 data class WatchedRequest(val id: String, @SerialName("is_watched") val isWatched: Boolean)
+
+@Serializable
+data class ChannelNavDto(
+    @SerialName("has_videos") val hasVideos: Boolean = true,
+    @SerialName("has_streams") val hasStreams: Boolean = false,
+    @SerialName("has_shorts") val hasShorts: Boolean = false,
+    @SerialName("has_playlists") val hasPlaylists: Boolean = false,
+)
+
+/** `GET /api/search/`: hits keep the list endpoints' shapes. */
+@Serializable
+data class SearchDto(val results: SearchResultsDto = SearchResultsDto())
+
+@Serializable
+data class SearchResultsDto(
+    @SerialName("video_results") val videos: List<VideoDto> = emptyList(),
+    @SerialName("channel_results") val channels: List<ChannelDto> = emptyList(),
+    @SerialName("playlist_results") val playlists: List<PlaylistDto> = emptyList(),
+)

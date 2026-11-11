@@ -20,18 +20,22 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.malgra.reliquary.core.data.session.SessionState
+import com.malgra.reliquary.feature.channels.ChannelScreen
 import com.malgra.reliquary.feature.channels.ChannelsScreen
 import com.malgra.reliquary.feature.downloads.DownloadsScreen
 import com.malgra.reliquary.feature.home.HomeScreen
 import com.malgra.reliquary.feature.onboarding.OnboardingRoute
 import com.malgra.reliquary.feature.player.PlayerScreen
+import com.malgra.reliquary.feature.playlists.PlaylistScreen
 import com.malgra.reliquary.feature.playlists.PlaylistsScreen
 import com.malgra.reliquary.feature.search.SearchScreen
 import com.malgra.reliquary.feature.settings.SettingsScreen
+import com.malgra.reliquary.navigation.ChannelDetail
 import com.malgra.reliquary.navigation.Channels
 import com.malgra.reliquary.navigation.Downloads
 import com.malgra.reliquary.navigation.Home
 import com.malgra.reliquary.navigation.Player
+import com.malgra.reliquary.navigation.PlaylistDetail
 import com.malgra.reliquary.navigation.Playlists
 import com.malgra.reliquary.navigation.Search
 import com.malgra.reliquary.navigation.Settings
@@ -76,11 +80,40 @@ private fun MainShell() {
                 rememberViewModelStoreNavEntryDecorator(),
             ),
             entryProvider = entryProvider {
-                entry<Home> { HomeScreen(onOpenSettings = { backStack.add(Settings) }) }
-                entry<Channels> { ChannelsScreen() }
-                entry<Playlists> { PlaylistsScreen() }
+                val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+                val openVideo: (String) -> Unit = { backStack.add(Player(it)) }
+                val openChannel: (String) -> Unit = { backStack.add(ChannelDetail(it)) }
+                val openPlaylist: (String) -> Unit = { backStack.add(PlaylistDetail(it)) }
+
+                entry<Home> {
+                    HomeScreen(
+                        onOpenSearch = { backStack.add(Search) },
+                        onOpenSettings = { backStack.add(Settings) },
+                        onOpenVideo = openVideo,
+                    )
+                }
+                entry<Channels> { ChannelsScreen(onOpenChannel = openChannel) }
+                entry<ChannelDetail> { key ->
+                    ChannelScreen(
+                        channelId = key.channelId,
+                        onBack = back,
+                        onOpenVideo = openVideo,
+                        onOpenPlaylist = openPlaylist,
+                    )
+                }
+                entry<Playlists> { PlaylistsScreen(onOpenPlaylist = openPlaylist) }
+                entry<PlaylistDetail> { key ->
+                    PlaylistScreen(playlistId = key.playlistId, onBack = back, onOpenVideo = openVideo)
+                }
                 entry<Downloads> { DownloadsScreen() }
-                entry<Search> { SearchScreen() }
+                entry<Search> {
+                    SearchScreen(
+                        onBack = back,
+                        onOpenVideo = openVideo,
+                        onOpenChannel = openChannel,
+                        onOpenPlaylist = openPlaylist,
+                    )
+                }
                 entry<Settings> { SettingsScreen() }
                 entry<Player> { PlayerScreen() }
             },

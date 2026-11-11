@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object Search : NavKey
 @Serializable data object Settings : NavKey
 @Serializable data class Player(val videoId: String) : NavKey
+@Serializable data class ChannelDetail(val channelId: String) : NavKey
+@Serializable data class PlaylistDetail(val playlistId: String) : NavKey
 
 /** The tabs in the navigation bar (phones) or rail (tablets and foldables). */
 enum class TopLevelDestination(val key: NavKey, val label: String, @DrawableRes val icon: Int) {

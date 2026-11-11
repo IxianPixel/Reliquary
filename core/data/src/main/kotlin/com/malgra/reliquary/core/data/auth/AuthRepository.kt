@@ -1,6 +1,8 @@
 package com.malgra.reliquary.core.data.auth
 
+import com.malgra.reliquary.core.data.library.LibraryCache
 import com.malgra.reliquary.core.data.session.SessionRepository
+import com.malgra.reliquary.core.data.session.SessionState
 import com.malgra.reliquary.core.model.Credentials
 import com.malgra.reliquary.core.model.ServerSession
 import com.malgra.reliquary.core.network.Failure
@@ -29,11 +31,15 @@ sealed interface SignInResult {
     data class Failed(val failure: Failure) : SignInResult
 }
 
-/** Server checks, sign-in and sign-out. Writes the result to [SessionRepository]. */
+/**
+ * Server checks, sign-in and sign-out. Writes the result to [SessionRepository]
+ * and clears the [LibraryCache] when the account changes.
+ */
 @Singleton
 class AuthRepository @Inject constructor(
     private val network: TubeArchivistNetwork,
     private val sessions: SessionRepository,
+    private val cache: LibraryCache,
 ) {
     suspend fun checkServer(input: String): ServerCheckResult {
         val url = ServerUrl.normalize(input) ?: return ServerCheckResult.InvalidUrl
@@ -61,6 +67,7 @@ class AuthRepository @Inject constructor(
             ServerUrl.normalize(session.baseUrl)?.let { network.logout(it) }
         }
         sessions.signOut()
+        cache.clear()
     }
 
     /** Pings with the new credentials to prove they work and to check the server version. */
@@ -86,6 +93,11 @@ class AuthRepository @Inject constructor(
         }
 
         val name = username ?: (network.account(auth) as? NetworkResult.Ok)?.value?.name
+        // Signing back in after the session expired keeps the cache; anyone or anywhere else starts clean.
+        val previous = sessions.state.value as? SessionState.SignedOut
+        val sameAccount = previous?.expired == true &&
+            previous.lastServerUrl == url.toString() && previous.lastUsername == name
+        if (!sameAccount) cache.clear()
         sessions.signIn(ServerSession(url.toString(), credentials, name, ping.version))
         return SignInResult.Success
     }

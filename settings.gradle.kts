@@ -32,6 +32,7 @@ include(":core:data")
 include(":core:sync")
 include(":core:download")
 include(":core:designsystem")
+include(":core:ui")
 
 include(":feature:onboarding")
 include(":feature:home")

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="playlists_title">Playlists</string>
+    <string name="playlists_empty">No playlists yet. Playlists you add in Tube Archivist appear here.</string>
+    <string name="playlist_back">Back</string>
+    <string name="playlist_play_all">Play all</string>
+    <string name="playlist_empty">None of this playlist’s videos are in the archive yet.</string>
+    <plurals name="playlist_archived_of">
+        <item quantity="one">%1$d of %2$d video archived</item>
+        <item quantity="other">%1$d of %2$d videos archived</item>
+    </plurals>
+</resources>

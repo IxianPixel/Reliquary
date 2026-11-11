@@ -1,6 +1,7 @@
 package com.malgra.reliquary.core.network
 
 import com.malgra.reliquary.core.network.model.Page
+import com.malgra.reliquary.core.network.model.PlaylistDto
 import com.malgra.reliquary.core.network.model.VideoDto
 import kotlinx.serialization.json.Json
 import org.junit.Test
@@ -35,5 +36,24 @@ class PageSerializerTest {
 
         val one = json.decodeFromString<Page<VideoDto>>("[$video]")
         assertEquals(1, one.data.size)
+    }
+
+    @Test fun skipsAnUnreadableItemAndKeepsTheRest() {
+        val page = json.decodeFromString<Page<VideoDto>>("""{"data":[{"title":"no id"}, $video]}""")
+        assertEquals(listOf("abc"), page.data.map { it.youtubeId })
+    }
+
+    @Test fun playlistWithMissingTextIsRead() {
+        val page = json.decodeFromString<Page<PlaylistDto>>(
+            """{"data":[{"playlist_id":"PL1","playlist_name":"Mix","playlist_description":false,
+               "playlist_channel":null,"playlist_entries":[{"youtube_id":"a","title":"A","uploader":false,"idx":0,"downloaded":true},
+                                  {"youtube_id":"ovkXFkjxGjs","title":null,"uploader":null,"idx":10,"downloaded":false}],
+               "playlist_last_refresh":false}]}""",
+        )
+        val playlist = page.data.single()
+        assertNull(playlist.playlistDescription)
+        assertEquals("", playlist.playlistChannel)
+        assertEquals(1, playlist.playlistEntries.count { it.downloaded })
+        assertNull(playlist.playlistEntries[1].title) // a video since deleted from YouTube
     }
 }

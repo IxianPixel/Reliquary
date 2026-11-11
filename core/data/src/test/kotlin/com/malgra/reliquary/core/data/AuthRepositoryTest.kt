@@ -2,6 +2,7 @@ package com.malgra.reliquary.core.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.malgra.reliquary.core.data.auth.AuthRepository
+import com.malgra.reliquary.core.data.fakes.FakeLibraryCache
 import com.malgra.reliquary.core.data.auth.SignInResult
 import com.malgra.reliquary.core.data.session.SessionCipher
 import com.malgra.reliquary.core.data.session.SessionRepository
@@ -43,6 +44,7 @@ class AuthRepositoryTest {
     }
 
     private lateinit var server: MockWebServer
+    private val cache = FakeLibraryCache()
 
     @Before fun setUp() {
         server = MockWebServer()
@@ -58,7 +60,7 @@ class AuthRepositoryTest {
 
     private fun TestScope.newAuth(sessions: SessionRepository): AuthRepository {
         val client = OkHttpClient.Builder().addInterceptor(AuthInterceptor(sessions)).build()
-        return AuthRepository(TubeArchivistNetwork(client, NetworkModule.json()), sessions)
+        return AuthRepository(TubeArchivistNetwork(client, NetworkModule.json()), sessions, cache)
     }
 
     private fun ping(version: String) = MockResponse(
@@ -153,5 +155,25 @@ class AuthRepositoryTest {
         assertEquals(true, state.expired)
         assertEquals("alex", state.lastUsername)
         assertNotEquals(null, state.lastServerUrl)
+    }
+
+    @Test fun cacheIsKeptOnlyWhenTheSameAccountSignsBackIn() = runTest(UnconfinedTestDispatcher()) {
+        val sessions = newSessions()
+        val auth = newAuth(sessions)
+        val url = server.url("/").toString()
+        server.enqueue(loginOk())
+        server.enqueue(ping("v0.6.0"))
+        auth.signInWithPassword(url, "alex", "pw")
+        assertEquals(1, cache.clears) // first sign-in starts clean
+
+        sessions.onAuthRejected()
+        server.enqueue(loginOk())
+        server.enqueue(ping("v0.6.0"))
+        auth.signInWithPassword(url, "alex", "pw")
+        assertEquals(1, cache.clears) // same account after expiry keeps the cache
+
+        server.enqueue(MockResponse(code = 204)) // logout
+        auth.signOut()
+        assertEquals(2, cache.clears)
     }
 }

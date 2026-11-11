@@ -4,12 +4,14 @@ import com.malgra.reliquary.core.network.auth.NoAuth
 import com.malgra.reliquary.core.network.auth.RequestAuth
 import com.malgra.reliquary.core.network.model.AccountDto
 import com.malgra.reliquary.core.network.model.ChannelDto
+import com.malgra.reliquary.core.network.model.ChannelNavDto
 import com.malgra.reliquary.core.network.model.LoginRequest
 import com.malgra.reliquary.core.network.model.Page
 import com.malgra.reliquary.core.network.model.PingDto
 import com.malgra.reliquary.core.network.model.PlayerDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
 import com.malgra.reliquary.core.network.model.ProgressRequest
+import com.malgra.reliquary.core.network.model.SearchDto
 import com.malgra.reliquary.core.network.model.VideoDto
 import com.malgra.reliquary.core.network.model.WatchedRequest
 import retrofit2.Response
@@ -87,4 +89,11 @@ interface TubeArchivistApi {
 
     @GET("api/playlist/{id}/")
     suspend fun playlist(@Path("id") id: String): PlaylistDto
+
+    @GET("api/channel/{id}/nav/")
+    suspend fun channelNav(@Path("id") id: String): ChannelNavDto
+
+    /** Up to 30 hits per kind; not paginated. */
+    @GET("api/search/")
+    suspend fun search(@Query("query") query: String): SearchDto
 }

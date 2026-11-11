@@ -17,4 +17,11 @@ object ReliquaryIcons {
     @DrawableRes val CheckCircle = R.drawable.ic_check_circle
     @DrawableRes val Settings = R.drawable.ic_settings
     @DrawableRes val Logout = R.drawable.ic_logout
+    @DrawableRes val Search = R.drawable.ic_search
+    @DrawableRes val Back = R.drawable.ic_arrow_back
+    @DrawableRes val Close = R.drawable.ic_close
+    @DrawableRes val Check = R.drawable.ic_check
+    @DrawableRes val Sort = R.drawable.ic_sort
+    @DrawableRes val Play = R.drawable.ic_play
+    @DrawableRes val More = R.drawable.ic_more_vert
 }

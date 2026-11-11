@@ -133,6 +133,14 @@ sealed interface Failure {
     data object UnexpectedResponse : Failure
 }
 
+/** Maps an exception from an API call to a [Failure]; null if it isn't a network or response error. */
+fun Throwable.toFailure(): Failure? = when (this) {
+    is HttpException -> Failure.Http(code(), null)
+    is SerializationException -> Failure.UnexpectedResponse
+    is IOException -> toFailure()
+    else -> null
+}
+
 internal fun IOException.toFailure(): Failure = when (this) {
     is UnknownHostException -> Failure.UnknownHost
     is ConnectException -> Failure.ConnectionRefused

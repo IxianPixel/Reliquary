@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_search">Search your archive</string>
+    <string name="home_account">Settings and account</string>
+    <string name="home_continue_watching">Continue watching</string>
+    <string name="home_recently_added">Recently added</string>
+    <string name="home_empty">Nothing in the archive yet. Videos appear here once Tube Archivist downloads them.</string>
+</resources>

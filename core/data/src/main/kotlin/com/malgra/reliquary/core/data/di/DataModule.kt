@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.malgra.reliquary.core.data.library.LibraryCache
+import com.malgra.reliquary.core.data.library.RoomLibraryCache
 import com.malgra.reliquary.core.data.session.KeystoreSessionCipher
 import com.malgra.reliquary.core.data.session.SessionCipher
 import com.malgra.reliquary.core.data.session.SessionRepository
@@ -53,4 +55,6 @@ interface DataBindings {
     @Binds fun sessionHolder(repository: SessionRepository): SessionHolder
 
     @Binds fun sessionCipher(cipher: KeystoreSessionCipher): SessionCipher
+
+    @Binds fun libraryCache(cache: RoomLibraryCache): LibraryCache
 }
