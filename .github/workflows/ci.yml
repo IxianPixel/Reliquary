@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [master, develop]
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   build:
+    # GitHub reports this as the check name; master's ruleset requires it.
     name: Build, test and lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
