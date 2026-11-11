@@ -37,16 +37,17 @@ class SearchRepository internal constructor(
         // Hits are full objects, so they refresh the cache (and offline search) too.
         val videos = results.videos.map { it.toEntity(server.baseUrl, now) }
         val playlists = results.playlists.map { it.toEntity(server.baseUrl, now) }
-        val channels = db.withTransaction {
+        val (channels, videoModels) = db.withTransaction {
             val previous = db.channelDao().getAll(results.channels.map { it.channelId }).associateBy { it.id }
             val channels = results.channels.map { it.toEntity(server.baseUrl, now, previous[it.channelId]) }
             db.videoDao().upsert(videos)
             db.channelDao().upsert(channels)
             db.playlistDao().upsert(playlists)
-            channels
+            // Local progress that hasn't synced still shows over the server's.
+            channels to videos.map { it.toModel(db.pendingProgressDao().get(it.id)) }
         }
         return SearchResults(
-            videos = videos.map { it.toModel() },
+            videos = videoModels,
             channels = channels.map { it.toModel() },
             playlists = playlists.map { it.toModel() },
             fromCache = false,

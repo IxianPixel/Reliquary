@@ -1,5 +1,6 @@
 package com.malgra.reliquary.core.database.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -85,4 +86,42 @@ data class ListingStateEntity(
     val nextPage: Int?,
     val totalCount: Int?,
     val refreshedAtMillis: Long,
+)
+
+/**
+ * Watch progress made on this device that the server hasn't confirmed yet.
+ * A row exists only while there is something to push; sync deletes it once the
+ * server has the change (and the video row has the server's answer).
+ */
+@Entity(tableName = "pending_progress")
+data class PendingProgressEntity(
+    @PrimaryKey val videoId: String,
+    val positionSeconds: Double,
+    /** Set when the user marked the video watched (true) or unwatched (false) here. */
+    val watched: Boolean?,
+    val updatedAtMillis: Long,
+    /** When the playback session (or mark) that produced this change started. */
+    val sessionStartedAtMillis: Long,
+)
+
+/** A video with any unsynced local progress over it. */
+data class VideoWithPending(
+    @Embedded val video: VideoEntity,
+    @Embedded(prefix = "pending_") val pending: PendingProgressEntity?,
+)
+
+/** A video saved (or being saved) to this device. [state] is a DownloadStatus name. */
+@Entity(tableName = "download")
+data class DownloadEntity(
+    @PrimaryKey val videoId: String,
+    val state: String,
+    val bytesDownloaded: Long,
+    /** From the server's Content-Range, else the video's media size; 0 if unknown. */
+    val totalBytes: Long,
+    val createdAtMillis: Long,
+)
+
+data class DownloadWithVideo(
+    @Embedded val download: DownloadEntity,
+    @Embedded(prefix = "video_") val video: VideoEntity?,
 )

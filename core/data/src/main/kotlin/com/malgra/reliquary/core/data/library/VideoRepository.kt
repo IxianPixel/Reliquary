@@ -71,6 +71,12 @@ class VideoRepository internal constructor(
 
     fun video(id: String): Flow<Video?> = videos.observe(id).map { it?.toModel() }
 
+    /** Fetches one video's details and server watch state; returns the error, or null on success. */
+    suspend fun refreshVideo(id: String): LoadError? = load {
+        val server = library.server()
+        videos.upsert(listOf(server.api.video(id).toEntity(server.baseUrl, clock())))
+    }.errorOrNull
+
     private fun pager(
         listKey: String,
         fetch: suspend TubeArchivistApi.(page: Int) -> Page<VideoDto>,

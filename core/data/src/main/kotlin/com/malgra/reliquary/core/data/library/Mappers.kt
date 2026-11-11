@@ -1,8 +1,10 @@
 package com.malgra.reliquary.core.data.library
 
 import com.malgra.reliquary.core.database.entity.ChannelEntity
+import com.malgra.reliquary.core.database.entity.PendingProgressEntity
 import com.malgra.reliquary.core.database.entity.PlaylistEntity
 import com.malgra.reliquary.core.database.entity.VideoEntity
+import com.malgra.reliquary.core.database.entity.VideoWithPending
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
 import com.malgra.reliquary.core.model.Playlist
@@ -81,7 +83,10 @@ internal fun parseServerDate(value: String?): Long? {
 
 // Cache -> app
 
-internal fun VideoEntity.toModel() = Video(
+internal fun VideoWithPending.toModel(): Video = video.toModel(pending)
+
+/** Local progress that hasn't synced wins over the server's, so the app shows where you are. */
+internal fun VideoEntity.toModel(pending: PendingProgressEntity? = null) = Video(
     id = id,
     title = title,
     channelId = channelId,
@@ -94,8 +99,9 @@ internal fun VideoEntity.toModel() = Video(
     mediaUrl = mediaUrl,
     mediaSizeBytes = mediaSizeBytes,
     thumbnailUrl = thumbnailUrl,
-    watched = watched,
-    position = positionSeconds.seconds,
+    watched = pending?.watched ?: watched,
+    position = (pending?.positionSeconds ?: positionSeconds).seconds,
+    syncPending = pending != null,
 )
 
 internal fun ChannelEntity.toModel(): Channel = Channel(

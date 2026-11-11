@@ -1,6 +1,7 @@
 package com.malgra.reliquary.core.data.auth
 
 import com.malgra.reliquary.core.data.library.LibraryCache
+import com.malgra.reliquary.core.data.progress.ProgressSyncScheduler
 import com.malgra.reliquary.core.data.session.SessionRepository
 import com.malgra.reliquary.core.data.session.SessionState
 import com.malgra.reliquary.core.model.Credentials
@@ -40,6 +41,7 @@ class AuthRepository @Inject constructor(
     private val network: TubeArchivistNetwork,
     private val sessions: SessionRepository,
     private val cache: LibraryCache,
+    private val progressSync: ProgressSyncScheduler,
 ) {
     suspend fun checkServer(input: String): ServerCheckResult {
         val url = ServerUrl.normalize(input) ?: return ServerCheckResult.InvalidUrl
@@ -99,6 +101,8 @@ class AuthRepository @Inject constructor(
             previous.lastServerUrl == url.toString() && previous.lastUsername == name
         if (!sameAccount) cache.clear()
         sessions.signIn(ServerSession(url.toString(), credentials, name, ping.version))
+        // Progress kept from before the session expired can go up now.
+        if (sameAccount) progressSync.requestSync()
         return SignInResult.Success
     }
 }

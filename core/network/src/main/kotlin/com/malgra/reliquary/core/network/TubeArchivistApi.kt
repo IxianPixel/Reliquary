@@ -8,7 +8,6 @@ import com.malgra.reliquary.core.network.model.ChannelNavDto
 import com.malgra.reliquary.core.network.model.LoginRequest
 import com.malgra.reliquary.core.network.model.Page
 import com.malgra.reliquary.core.network.model.PingDto
-import com.malgra.reliquary.core.network.model.PlayerDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
 import com.malgra.reliquary.core.network.model.ProgressRequest
 import com.malgra.reliquary.core.network.model.SearchDto
@@ -62,7 +61,7 @@ interface TubeArchivistApi {
     suspend fun video(@Path("id") id: String): VideoDto
 
     @POST("api/video/{id}/progress/")
-    suspend fun setProgress(@Path("id") id: String, @Body body: ProgressRequest): PlayerDto
+    suspend fun setProgress(@Path("id") id: String, @Body body: ProgressRequest): Response<Unit>
 
     @DELETE("api/video/{id}/progress/")
     suspend fun clearProgress(@Path("id") id: String): Response<Unit>

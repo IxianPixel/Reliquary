@@ -3,6 +3,7 @@ package com.malgra.reliquary.core.data
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.malgra.reliquary.core.data.auth.AuthRepository
 import com.malgra.reliquary.core.data.fakes.FakeLibraryCache
+import com.malgra.reliquary.core.data.fakes.FakeSyncScheduler
 import com.malgra.reliquary.core.data.auth.SignInResult
 import com.malgra.reliquary.core.data.session.SessionCipher
 import com.malgra.reliquary.core.data.session.SessionRepository
@@ -53,7 +54,7 @@ class LiveServerSignInTest {
             OkHttpClient.Builder().addInterceptor(AuthInterceptor(sessions)).build(),
             NetworkModule.json(),
         )
-        val auth = AuthRepository(network, sessions, FakeLibraryCache())
+        val auth = AuthRepository(network, sessions, FakeLibraryCache(), FakeSyncScheduler())
 
         assertEquals(SignInResult.InvalidCredentials, auth.signInWithPassword(url!!, username!!, "definitely-wrong"))
         assertEquals(SignInResult.TokenRejected, auth.signInWithToken(url, "not-a-real-token"))

@@ -6,7 +6,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import com.malgra.reliquary.core.database.ReliquaryDatabase
-import com.malgra.reliquary.core.database.entity.VideoEntity
+import com.malgra.reliquary.core.database.entity.VideoWithPending
 import com.malgra.reliquary.core.network.model.PaginateDto
 import com.malgra.reliquary.core.network.model.VideoDto
 import kotlinx.coroutines.flow.first
@@ -43,7 +43,7 @@ class ListingMediatorTest {
         server.close()
     }
 
-    private fun mediator(listKey: String = "test") = ListingMediator<VideoEntity, VideoDto>(
+    private fun mediator(listKey: String = "test") = ListingMediator<VideoWithPending, VideoDto>(
         listKey = listKey,
         db = db,
         library = libraryApiFor(server),
@@ -56,9 +56,9 @@ class ListingMediatorTest {
         },
     )
 
-    private val emptyState = PagingState<Int, VideoEntity>(emptyList(), null, PagingConfig(20), 0)
+    private val emptyState = PagingState<Int, VideoWithPending>(emptyList(), null, PagingConfig(20), 0)
 
-    private suspend fun listed(listKey: String = "test") = db.videoDao().observeListing(listKey).first().map { it.id }
+    private suspend fun listed(listKey: String = "test") = db.videoDao().observeListing(listKey).first().map { it.video.id }
 
     @Test fun refreshThenAppendKeepsServerOrderUntilTheLastPage() = runTest {
         server.enqueue(MockResponse(code = 200, body = videoPage(listOf("c", "a", "e"), page = 1, next = true)))

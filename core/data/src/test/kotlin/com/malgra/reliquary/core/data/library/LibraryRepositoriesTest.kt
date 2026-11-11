@@ -112,7 +112,7 @@ class LibraryRepositoriesTest {
         assertEquals("/api/search/?query=moon", server.takeRequest().target)
         assertFalse(result.value.fromCache)
         assertEquals(listOf("UC1"), result.value.channels.map { it.id })
-        assertEquals("a", db.videoDao().observe("a").first()?.id)
+        assertEquals("a", db.videoDao().observe("a").first()?.video?.id)
     }
 
     @Test fun channelRefreshStoresTabs() = runTest {

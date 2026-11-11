@@ -25,6 +25,8 @@ data class Video(
     val thumbnailUrl: String?,
     val watched: Boolean,
     val position: Duration,
+    /** True while a position or watched change made here hasn't reached the server. */
+    val syncPending: Boolean = false,
 ) {
     /** 0..1, or null when there is no position to show. */
     val progress: Float?

@@ -23,4 +23,5 @@ object DatabaseModule {
     @Provides fun channelDao(db: ReliquaryDatabase) = db.channelDao()
     @Provides fun playlistDao(db: ReliquaryDatabase) = db.playlistDao()
     @Provides fun listingDao(db: ReliquaryDatabase) = db.listingDao()
+    @Provides fun pendingProgressDao(db: ReliquaryDatabase) = db.pendingProgressDao()
 }

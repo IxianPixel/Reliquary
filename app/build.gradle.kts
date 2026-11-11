@@ -32,6 +32,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:sync"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:home"))
     implementation(project(":feature:channels"))
@@ -52,4 +53,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.media3.session)
 }

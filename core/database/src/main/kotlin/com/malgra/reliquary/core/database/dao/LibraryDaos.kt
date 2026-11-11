@@ -7,43 +7,86 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import com.malgra.reliquary.core.database.entity.ChannelEntity
+import com.malgra.reliquary.core.database.entity.DownloadEntity
+import com.malgra.reliquary.core.database.entity.DownloadWithVideo
 import com.malgra.reliquary.core.database.entity.ListingItemEntity
 import com.malgra.reliquary.core.database.entity.ListingStateEntity
+import com.malgra.reliquary.core.database.entity.PendingProgressEntity
 import com.malgra.reliquary.core.database.entity.PlaylistEntity
 import com.malgra.reliquary.core.database.entity.VideoEntity
+import com.malgra.reliquary.core.database.entity.VideoWithPending
 import kotlinx.coroutines.flow.Flow
+
+/** Columns for [VideoWithPending]: the video plus its pending progress, if any. */
+internal const val VIDEO_WITH_PENDING = """
+    video.*,
+    pending_progress.videoId AS pending_videoId,
+    pending_progress.positionSeconds AS pending_positionSeconds,
+    pending_progress.watched AS pending_watched,
+    pending_progress.updatedAtMillis AS pending_updatedAtMillis,
+    pending_progress.sessionStartedAtMillis AS pending_sessionStartedAtMillis
+"""
 
 @Dao
 interface VideoDao {
     @Upsert suspend fun upsert(videos: List<VideoEntity>)
 
-    @Query("SELECT * FROM video WHERE id = :id")
-    fun observe(id: String): Flow<VideoEntity?>
+    @Query("SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id WHERE video.id = :id")
+    fun observe(id: String): Flow<VideoWithPending?>
+
+    @Query("SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id WHERE video.id = :id")
+    suspend fun get(id: String): VideoWithPending?
 
     @Query(
         """
-        SELECT video.* FROM listing_item JOIN video ON video.id = listing_item.itemId
+        SELECT $VIDEO_WITH_PENDING FROM listing_item
+        JOIN video ON video.id = listing_item.itemId
+        LEFT JOIN pending_progress ON pending_progress.videoId = video.id
         WHERE listing_item.listKey = :listKey ORDER BY listing_item.position
         """,
     )
-    fun pagingSource(listKey: String): PagingSource<Int, VideoEntity>
+    fun pagingSource(listKey: String): PagingSource<Int, VideoWithPending>
 
     @Query(
         """
-        SELECT video.* FROM listing_item JOIN video ON video.id = listing_item.itemId
+        SELECT $VIDEO_WITH_PENDING FROM listing_item
+        JOIN video ON video.id = listing_item.itemId
+        LEFT JOIN pending_progress ON pending_progress.videoId = video.id
         WHERE listing_item.listKey = :listKey ORDER BY listing_item.position
         """,
     )
-    fun observeListing(listKey: String): Flow<List<VideoEntity>>
+    fun observeListing(listKey: String): Flow<List<VideoWithPending>>
 
     /** Offline fallback for search: a plain substring match on cached rows. */
     @Query(
         """
-        SELECT * FROM video WHERE title LIKE '%' || :query || '%' OR channelName LIKE '%' || :query || '%'
+        SELECT $VIDEO_WITH_PENDING FROM video LEFT JOIN pending_progress ON pending_progress.videoId = video.id
+        WHERE title LIKE '%' || :query || '%' OR channelName LIKE '%' || :query || '%'
         ORDER BY addedEpochSeconds DESC LIMIT :limit
         """,
     )
-    suspend fun search(query: String, limit: Int = 30): List<VideoEntity>
+    suspend fun search(query: String, limit: Int = 30): List<VideoWithPending>
+}
+
+@Dao
+interface PendingProgressDao {
+    @Query("SELECT * FROM pending_progress WHERE videoId = :videoId")
+    suspend fun get(videoId: String): PendingProgressEntity?
+
+    @Query("SELECT * FROM pending_progress ORDER BY updatedAtMillis")
+    suspend fun all(): List<PendingProgressEntity>
+
+    @Query("SELECT COUNT(*) FROM pending_progress")
+    fun observeCount(): Flow<Int>
+
+    @Upsert suspend fun upsert(progress: PendingProgressEntity)
+
+    /** Removes the row only if nothing changed it since [updatedAtMillis]; returns rows deleted. */
+    @Query("DELETE FROM pending_progress WHERE videoId = :videoId AND updatedAtMillis = :updatedAtMillis")
+    suspend fun deleteIfUnchanged(videoId: String, updatedAtMillis: Long): Int
+
+    @Query("DELETE FROM pending_progress WHERE videoId = :videoId")
+    suspend fun delete(videoId: String)
 }
 
 @Dao
@@ -118,4 +161,39 @@ interface ListingDao {
 
     @Query("SELECT itemId FROM listing_item WHERE listKey = :listKey AND itemId IN (:itemIds)")
     suspend fun itemIdsIn(listKey: String, itemIds: List<String>): List<String>
+}
+
+@Dao
+interface DownloadDao {
+    @Query("SELECT * FROM download WHERE videoId = :videoId")
+    fun observe(videoId: String): Flow<DownloadEntity?>
+
+    @Query("SELECT * FROM download WHERE videoId = :videoId")
+    suspend fun get(videoId: String): DownloadEntity?
+
+    /** Newest first, with each video's cached details. */
+    @Query(
+        """
+        SELECT download.*,
+            video.id AS video_id, video.title AS video_title, video.channelId AS video_channelId,
+            video.channelName AS video_channelName, video.description AS video_description,
+            video.type AS video_type, video.durationSeconds AS video_durationSeconds,
+            video.publishedEpochSeconds AS video_publishedEpochSeconds,
+            video.addedEpochSeconds AS video_addedEpochSeconds, video.mediaUrl AS video_mediaUrl,
+            video.mediaSizeBytes AS video_mediaSizeBytes, video.thumbnailUrl AS video_thumbnailUrl,
+            video.watched AS video_watched, video.watchedEpochSeconds AS video_watchedEpochSeconds,
+            video.positionSeconds AS video_positionSeconds, video.fetchedAtMillis AS video_fetchedAtMillis
+        FROM download LEFT JOIN video ON video.id = download.videoId
+        ORDER BY download.createdAtMillis DESC
+        """,
+    )
+    fun observeAll(): Flow<List<DownloadWithVideo>>
+
+    @Upsert suspend fun upsert(download: DownloadEntity)
+
+    @Query("UPDATE download SET state = :state, bytesDownloaded = :bytes, totalBytes = :total WHERE videoId = :videoId")
+    suspend fun update(videoId: String, state: String, bytes: Long, total: Long)
+
+    @Query("DELETE FROM download WHERE videoId = :videoId")
+    suspend fun delete(videoId: String)
 }

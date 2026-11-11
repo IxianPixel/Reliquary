@@ -30,7 +30,13 @@ internal fun libraryApiFor(server: MockWebServer): LibraryApi {
     return LibraryApi(TubeArchivistNetwork(client, NetworkModule.json()), sessions)
 }
 
-internal fun videoJson(id: String, title: String = "Video $id", watched: Boolean = false, position: Double? = null) = """
+internal fun videoJson(
+    id: String,
+    title: String = "Video $id",
+    watched: Boolean = false,
+    position: Double? = null,
+    watchedDate: Long? = null,
+) = """
     {
       "youtube_id": "$id",
       "title": "$title",
@@ -41,7 +47,7 @@ internal fun videoJson(id: String, title: String = "Video $id", watched: Boolean
       "vid_type": "videos",
       "media_url": "/media/stream/UC1/$id.mp4",
       "media_size": 1000,
-      "player": {"watched": $watched, "duration": 842, "duration_str": "14:02"${position?.let { ", \"position\": $it" } ?: ""}},
+      "player": {"watched": $watched, "duration": 842, "duration_str": "14:02"${position?.let { ", \"position\": $it" } ?: ""}${watchedDate?.let { ", \"watched_date\": $it" } ?: ""}},
       "_index": "ta_video",
       "_score": 1.0
     }

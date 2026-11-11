@@ -3,6 +3,7 @@ package com.malgra.reliquary.core.data
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.malgra.reliquary.core.data.auth.AuthRepository
 import com.malgra.reliquary.core.data.fakes.FakeLibraryCache
+import com.malgra.reliquary.core.data.fakes.FakeSyncScheduler
 import com.malgra.reliquary.core.data.auth.SignInResult
 import com.malgra.reliquary.core.data.session.SessionCipher
 import com.malgra.reliquary.core.data.session.SessionRepository
@@ -45,6 +46,7 @@ class AuthRepositoryTest {
 
     private lateinit var server: MockWebServer
     private val cache = FakeLibraryCache()
+    private val syncs = FakeSyncScheduler()
 
     @Before fun setUp() {
         server = MockWebServer()
@@ -60,7 +62,7 @@ class AuthRepositoryTest {
 
     private fun TestScope.newAuth(sessions: SessionRepository): AuthRepository {
         val client = OkHttpClient.Builder().addInterceptor(AuthInterceptor(sessions)).build()
-        return AuthRepository(TubeArchivistNetwork(client, NetworkModule.json()), sessions, cache)
+        return AuthRepository(TubeArchivistNetwork(client, NetworkModule.json()), sessions, cache, syncs)
     }
 
     private fun ping(version: String) = MockResponse(
@@ -171,6 +173,7 @@ class AuthRepositoryTest {
         server.enqueue(ping("v0.6.0"))
         auth.signInWithPassword(url, "alex", "pw")
         assertEquals(1, cache.clears) // same account after expiry keeps the cache
+        assertEquals(1, syncs.requests) // and pushes progress saved meanwhile
 
         server.enqueue(MockResponse(code = 204)) // logout
         auth.signOut()

@@ -24,4 +24,12 @@ object ReliquaryIcons {
     @DrawableRes val Sort = R.drawable.ic_sort
     @DrawableRes val Play = R.drawable.ic_play
     @DrawableRes val More = R.drawable.ic_more_vert
+    @DrawableRes val Pause = R.drawable.ic_pause
+    @DrawableRes val Replay10 = R.drawable.ic_replay_10
+    @DrawableRes val Forward10 = R.drawable.ic_forward_10
+    @DrawableRes val Fullscreen = R.drawable.ic_fullscreen
+    @DrawableRes val FullscreenExit = R.drawable.ic_fullscreen_exit
+    @DrawableRes val ChevronDown = R.drawable.ic_chevron_down
+    @DrawableRes val ChevronRight = R.drawable.ic_chevron_right
+    @DrawableRes val Sync = R.drawable.ic_sync
 }
