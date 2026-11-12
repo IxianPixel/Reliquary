@@ -2,12 +2,14 @@ package com.malgra.reliquary.feature.player
 
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.core.os.bundleOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.library.ChannelRepository
+import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import com.malgra.reliquary.core.model.Channel
@@ -18,8 +20,10 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -30,25 +34,38 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** What to load into the player: the item and where to start. */
-data class PlaybackRequest(val item: MediaItem, val startPositionMs: Long)
+/** What to load into the player: the queue, which item to start with, and where in it. */
+data class PlaybackRequest(val items: List<MediaItem>, val startIndex: Int, val startPositionMs: Long)
 
+/** The playlist being played as a queue, in order. */
+data class PlayQueue(val playlistId: String, val name: String, val videos: List<Video>)
+
+/**
+ * The player screen's state. It opens on [videoId] (in [playlistId]'s queue if
+ * given) and then follows whatever the player moves on to, via [onNowPlaying].
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = PlayerViewModel.Factory::class)
 class PlayerViewModel @AssistedInject constructor(
-    @Assisted val videoId: String,
+    @Assisted("videoId") val videoId: String,
+    @Assisted("playlistId") val playlistId: String?,
     private val videos: VideoRepository,
     private val progress: ProgressRepository,
     private val downloads: DownloadRepository,
     channels: ChannelRepository,
+    playlists: PlaylistRepository,
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
-        fun create(videoId: String): PlayerViewModel
+        fun create(@Assisted("videoId") videoId: String, @Assisted("playlistId") playlistId: String?): PlayerViewModel
     }
 
-    val video: StateFlow<Video?> = videos.video(videoId)
+    /** The video the screen shows: the one opened, then whatever is playing. */
+    private val shownId = MutableStateFlow(videoId)
+    private val queuePlaylistId = MutableStateFlow(playlistId)
+
+    val video: StateFlow<Video?> = shownId.flatMapLatest { videos.video(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val channel: StateFlow<Channel?> = video.map { it?.channelId }
@@ -56,33 +73,68 @@ class PlayerViewModel @AssistedInject constructor(
         .flatMapLatest { id -> if (id.isNullOrEmpty()) flowOf(null) else channels.channel(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val download: StateFlow<Download?> = shownId.flatMapLatest { downloads.download(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val queue: StateFlow<PlayQueue?> = queuePlaylistId
+        .flatMapLatest { id ->
+            if (id == null) {
+                flowOf(null)
+            } else {
+                combine(playlists.playlist(id), videos.playlistListing(id)) { playlist, list ->
+                    PlayQueue(id, playlist?.name.orEmpty(), list)
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         // Fresh details and server watch state; the cached row plays meanwhile (or offline).
         viewModelScope.launch { videos.refreshVideo(videoId) }
     }
 
-    /** Null if the video isn't cached and the server can't be reached. */
+    /** The player moved to [id] (from [playlistId]'s queue, if any). */
+    fun onNowPlaying(id: String, playlistId: String?) {
+        if (playlistId != null) queuePlaylistId.value = playlistId
+        if (id == shownId.value) return
+        shownId.value = id
+        viewModelScope.launch { videos.refreshVideo(id) }
+    }
+
+    /**
+     * The whole playlist when opened from one, else just this video. Null if the
+     * video isn't cached and the server can't be reached.
+     */
     suspend fun playbackRequest(): PlaybackRequest? {
+        val start = progress.resumePosition(videoId).inWholeMilliseconds
+        if (playlistId != null) {
+            val list = videos.playlistQueue(playlistId)
+            val index = list.indexOfFirst { it.id == videoId }
+            if (index >= 0) {
+                val items = list.map { it.toMediaItem(downloads.localFile(it.id)?.let(Uri::fromFile), playlistId) }
+                return PlaybackRequest(items, index, start)
+            }
+        }
         val video = withTimeoutOrNull(LOAD_TIMEOUT_MS) { this@PlayerViewModel.video.filterNotNull().first() }
             ?: return null
         // A downloaded copy plays without the server.
         val local = downloads.localFile(videoId)?.let(Uri::fromFile)
-        return PlaybackRequest(video.toMediaItem(local), progress.resumePosition(videoId).inWholeMilliseconds)
+        return PlaybackRequest(listOf(video.toMediaItem(local)), 0, start)
     }
 
-    val download: StateFlow<Download?> = downloads.download(videoId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     fun startDownload() {
-        viewModelScope.launch { downloads.start(videoId) }
+        val id = shownId.value
+        viewModelScope.launch { downloads.start(id) }
     }
 
     fun removeDownload() {
-        viewModelScope.launch { downloads.remove(videoId) }
+        val id = shownId.value
+        viewModelScope.launch { downloads.remove(id) }
     }
 
     fun setWatched(watched: Boolean) {
-        viewModelScope.launch { progress.setWatched(videoId, watched) }
+        val id = shownId.value
+        viewModelScope.launch { progress.setWatched(id, watched) }
     }
 
     private companion object {
@@ -90,8 +142,14 @@ class PlayerViewModel @AssistedInject constructor(
     }
 }
 
+private const val EXTRA_PLAYLIST_ID = "com.malgra.reliquary.playlistId"
+
+/** The playlist this item was queued from, if any. */
+internal val MediaItem.playlistId: String?
+    get() = mediaMetadata.extras?.getString(EXTRA_PLAYLIST_ID)
+
 /** [localFile] replaces the server URL when the video is downloaded. */
-internal fun Video.toMediaItem(localFile: Uri? = null): MediaItem {
+internal fun Video.toMediaItem(localFile: Uri? = null, playlistId: String? = null): MediaItem {
     val uri: Uri = localFile ?: mediaUrl.toUri()
     return MediaItem.Builder()
         .setMediaId(id)
@@ -105,6 +163,7 @@ internal fun Video.toMediaItem(localFile: Uri? = null): MediaItem {
                 .setArtworkUri(thumbnailUrl?.toUri())
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
+                .apply { if (playlistId != null) setExtras(bundleOf(EXTRA_PLAYLIST_ID to playlistId)) }
                 .build(),
         )
         .build()

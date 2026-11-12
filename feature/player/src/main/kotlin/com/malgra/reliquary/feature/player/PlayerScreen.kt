@@ -1,5 +1,8 @@
 package com.malgra.reliquary.feature.player
 
+import androidx.compose.ui.layout.layout
+import com.malgra.reliquary.core.ui.VideoListItem
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -115,32 +118,49 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun PlayerScreen(
     videoId: String,
+    playlistId: String?,
     controller: MediaController?,
     onBack: () -> Unit,
     onOpenChannel: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel<PlayerViewModel, PlayerViewModel.Factory>(
-        key = videoId,
-        creationCallback = { factory -> factory.create(videoId) },
+        key = "$videoId/$playlistId",
+        creationCallback = { factory -> factory.create(videoId, playlistId) },
     ),
 ) {
     val video by viewModel.video.collectAsStateWithLifecycle()
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val download by viewModel.download.collectAsStateWithLifecycle()
+    val queue by viewModel.queue.collectAsStateWithLifecycle()
     var unavailable by remember { mutableStateOf(false) }
+    // Set once the player holds what this screen asked for; until then, follow nothing.
+    var loaded by remember { mutableStateOf(false) }
 
-    // Load this video unless it's already the one playing (e.g. opened from the mini-player).
-    LaunchedEffect(controller, videoId) {
+    // Load this video (and its playlist) unless it's already what's playing, e.g. from the mini-player.
+    LaunchedEffect(controller, videoId, playlistId) {
         val player = controller ?: return@LaunchedEffect
-        if (player.currentMediaItem?.mediaId == videoId) return@LaunchedEffect
-        val request = viewModel.playbackRequest()
-        if (request == null) {
-            unavailable = true
-            return@LaunchedEffect
+        val current = player.currentMediaItem
+        val alreadyPlaying = current?.mediaId == videoId && (playlistId == null || current.playlistId == playlistId)
+        if (!alreadyPlaying) {
+            val request = viewModel.playbackRequest()
+            if (request == null) {
+                unavailable = true
+                return@LaunchedEffect
+            }
+            player.setMediaItems(request.items, request.startIndex, request.startPositionMs)
+            player.prepare()
+            player.play()
         }
-        player.setMediaItem(request.item, request.startPositionMs)
-        player.prepare()
-        player.play()
+        loaded = true
+    }
+
+    // Follow the queue as it moves on, so the details match what's playing.
+    if (controller != null) {
+        val nowPlaying by currentMediaItemState(controller)
+        LaunchedEffect(nowPlaying?.mediaId, loaded) {
+            val item = nowPlaying ?: return@LaunchedEffect
+            if (loaded) viewModel.onNowPlaying(item.mediaId, item.playlistId)
+        }
     }
 
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -197,6 +217,11 @@ fun PlayerScreen(
                     viewModel.setWatched(watched)
                 },
                 onOpenChannel = onOpenChannel,
+                queue = queue,
+                onPlayQueued = { index ->
+                    controller?.seekToDefaultPosition(index)
+                    controller?.play()
+                },
                 modifier = Modifier.weight(1f),
             )
             unavailable -> Text(
@@ -555,6 +580,8 @@ private fun Details(
     onRemoveDownload: () -> Unit,
     onSetWatched: (Boolean) -> Unit,
     onOpenChannel: (String) -> Unit,
+    queue: PlayQueue?,
+    onPlayQueued: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -621,7 +648,45 @@ private fun Details(
                 )
             }
         }
+        // "Next in" the playlist, as in the mockup: the next few, tap to jump.
+        val current = queue?.videos?.indexOfFirst { it.id == video.id } ?: -1
+        val upNext = if (queue != null && current >= 0) {
+            queue.videos.withIndex().drop(current + 1).take(UP_NEXT_COUNT)
+        } else {
+            emptyList()
+        }
+        if (upNext.isNotEmpty()) {
+            item(key = "next-header") {
+                Text(
+                    stringResource(R.string.player_next_in, queue!!.name),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            items(upNext, key = { "next-${it.value.id}" }) { (index, next) ->
+                VideoListItem(
+                    next,
+                    onClick = { onPlayQueued(index) },
+                    // Edge to edge like other lists, past the column's padding.
+                    modifier = Modifier.bleedHorizontally(16.dp),
+                )
+            }
+        }
     }
+}
+
+private const val UP_NEXT_COUNT = 5
+
+/** Lets an item extend [amount] past its parent's horizontal padding on both sides. */
+private fun Modifier.bleedHorizontally(amount: Dp) = layout { measurable, constraints ->
+    val extra = (amount * 2).roundToPx()
+    val placeable = measurable.measure(
+        constraints.copy(
+            minWidth = constraints.minWidth + extra,
+            maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth + extra else constraints.maxWidth,
+        ),
+    )
+    layout(placeable.width - extra, placeable.height) { placeable.place(-amount.roundToPx(), 0) }
 }
 
 /** Download, progress (tap to cancel), or Downloaded (tap to remove, after asking). */

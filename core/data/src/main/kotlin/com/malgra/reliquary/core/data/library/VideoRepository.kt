@@ -7,6 +7,10 @@ import androidx.paging.map
 import androidx.room.withTransaction
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.ListingStateEntity
+import com.malgra.reliquary.core.database.entity.VideoEntity
+import com.malgra.reliquary.core.network.Failure
+import com.malgra.reliquary.core.network.toFailure
+import kotlinx.coroutines.flow.first
 import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
@@ -83,11 +87,53 @@ class VideoRepository internal constructor(
 
     fun video(id: String): Flow<Video?> = videos.observe(id).map { it?.toModel() }
 
+    /** A playlist's videos as cached, in playlist order. */
+    fun playlistListing(playlistId: String): Flow<List<Video>> =
+        videos.observeListing(ListKeys.playlistVideos(playlistId)).map { rows -> rows.map { it.toModel() } }
+
+    /**
+     * Every video in the playlist, in order, for playing it as a queue. Fetches
+     * the pages not cached yet; offline it returns what's cached.
+     */
+    suspend fun playlistQueue(playlistId: String): List<Video> {
+        val listKey = ListKeys.playlistVideos(playlistId)
+        load {
+            val server = library.server()
+            val now = clock()
+            val all = mutableListOf<VideoEntity>()
+            var page: Int? = 1
+            var total: Int? = null
+            while (page != null && page <= MAX_QUEUE_PAGES) {
+                val response = try {
+                    server.api.videos(page = page, playlist = playlistId)
+                } catch (e: Exception) {
+                    val failure = e.toFailure()
+                    if (failure is Failure.Http && failure.code == 404) break else throw e // 404 past the end
+                }
+                all += response.data.map { it.toEntity(server.baseUrl, now) }
+                total = response.paginate?.totalHits ?: total
+                page = nextPage(response.paginate)
+            }
+            db.withTransaction {
+                videos.upsert(all)
+                listings.clearItems(listKey)
+                listings.append(listKey, all.map { it.id })
+                listings.upsertState(ListingStateEntity(listKey, page, total, now))
+            }
+        }
+        return videos.observeListing(listKey).first().map { it.toModel() }
+    }
+
     /** Fetches one video's details and server watch state; returns the error, or null on success. */
     suspend fun refreshVideo(id: String): LoadError? = load {
         val server = library.server()
         videos.upsert(listOf(server.api.video(id).toEntity(server.baseUrl, clock())))
     }.errorOrNull
+
+    private companion object {
+        /** Up to a few hundred videos, at TA's usual page sizes. */
+        const val MAX_QUEUE_PAGES = 25
+    }
 
     private fun pager(
         listKey: String,

@@ -131,7 +131,12 @@ private fun MainShell(viewModel: MainViewModel) {
                         }
                         entry<Playlists> { PlaylistsScreen(onOpenPlaylist = openPlaylist) }
                         entry<PlaylistDetail> { key ->
-                            PlaylistScreen(playlistId = key.playlistId, onBack = back, onOpenVideo = openVideo)
+                            // Videos opened here play with the rest of the playlist queued after them.
+                            PlaylistScreen(
+                                playlistId = key.playlistId,
+                                onBack = back,
+                                onOpenVideo = { id -> backStack.add(Player(id, key.playlistId)) },
+                            )
                         }
                         entry<Downloads> { DownloadsScreen(onOpenVideo = openVideo) }
                         entry<Search> {
@@ -146,6 +151,7 @@ private fun MainShell(viewModel: MainViewModel) {
                         entry<Player> { key ->
                             PlayerScreen(
                                 videoId = key.videoId,
+                                playlistId = key.playlistId,
                                 controller = controller,
                                 onBack = back,
                                 onOpenChannel = openChannel,
@@ -161,9 +167,9 @@ private fun MainShell(viewModel: MainViewModel) {
     }
 }
 
-/** Opens the player for [videoId], reusing its entry if it's already in the stack. */
+/** Opens the player for what's playing; there is only ever one player in the stack. */
 private fun NavBackStack<NavKey>.openPlayer(videoId: String) {
-    remove(Player(videoId))
+    removeAll { it is Player }
     add(Player(videoId))
 }
 

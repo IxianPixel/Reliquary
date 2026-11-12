@@ -140,4 +140,27 @@ class LibraryRepositoriesTest {
         assertEquals(false, channel?.tabs?.streams)
         assertEquals(true, channel?.tabs?.playlists)
     }
+
+    @Test fun playlistQueueFetchesEveryPageInOrder() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) = when (request.url.queryParameter("page")) {
+                "1" -> MockResponse(code = 200, body = videoPage(listOf("p1", "p2"), page = 1, next = true))
+                "2" -> MockResponse(code = 200, body = videoPage(listOf("p3"), page = 2, next = false))
+                else -> MockResponse(code = 404)
+            }
+        }
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        assertEquals(listOf("p1", "p2", "p3"), videos.playlistQueue("PL1").map { it.id })
+        assertEquals(listOf("p1", "p2", "p3"), videos.playlistListing("PL1").first().map { it.id })
+    }
+
+    @Test fun playlistQueueOfflineReturnsWhatIsCached() = runTest {
+        server.enqueue(MockResponse(code = 200, body = videoPage(listOf("p1", "p2"), page = 1, next = false)))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+        videos.playlistQueue("PL1")
+        server.close()
+
+        assertEquals(listOf("p1", "p2"), videos.playlistQueue("PL1").map { it.id })
+    }
 }

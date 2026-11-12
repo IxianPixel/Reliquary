@@ -28,6 +28,7 @@
     <string name="player_remove_download_body">The video stays on your server. You’ll need a connection to watch it again.</string>
     <string name="player_remove">Remove</string>
     <string name="player_keep">Keep</string>
+    <string name="player_next_in">Next in “%s”</string>
     <string name="mini_player_open">Open player: %s</string>
     <string name="mini_player_close">Stop playback</string>
 </resources>

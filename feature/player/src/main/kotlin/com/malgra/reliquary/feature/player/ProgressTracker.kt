@@ -4,10 +4,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.annotation.OptIn as UnstableOptIn
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -47,10 +50,7 @@ internal class ProgressTracker(
         handler.removeCallbacks(tick)
         if (isPlaying) {
             val id = player.currentMediaItem?.mediaId ?: return
-            if (id != sessionVideoId) {
-                sessionVideoId = id
-                sessionStartedAt = clock()
-            }
+            if (id != sessionVideoId) startSession(id)
             handler.postDelayed(tick, SAVE_INTERVAL_MS)
         } else {
             saveCurrent(thenSync = true)
@@ -67,15 +67,32 @@ internal class ProgressTracker(
         val oldId = oldPosition.mediaItem?.mediaId
         val newId = newPosition.mediaItem?.mediaId
         when {
-            // Another video replaced this one: keep where this one got to.
+            // Another video replaced this one (or the queue moved on): keep where this one got to.
             oldId == session && newId != session -> {
                 save(session, oldPosition.positionMs, thenSync = true)
                 sessionVideoId = null
+                // Still playing, so no onIsPlayingChanged will start the next video's session.
+                if (player.playWhenReady && newId != null) startSession(newId)
             }
             reason == Player.DISCONTINUITY_REASON_SEEK && newId == session -> {
                 // While playing, the next pause syncs; while paused, nothing else will.
                 save(session, newPosition.positionMs, thenSync = !player.isPlaying)
             }
+        }
+    }
+
+    /**
+     * When the queue moves to another video by itself or by a tap on "Next in",
+     * that video picks up from its saved place (the first one is started there
+     * by the player screen).
+     */
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        val id = mediaItem?.mediaId ?: return
+        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && reason != Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) return
+        scope.launch(Dispatchers.Main) {
+            val resume = progress.resumePosition(id)
+            val stillStarting = player.currentMediaItem?.mediaId == id && player.currentPosition < RESUME_WINDOW_MS
+            if (resume > Duration.ZERO && stillStarting) player.seekTo(resume.inWholeMilliseconds)
         }
     }
 
@@ -88,6 +105,11 @@ internal class ProgressTracker(
         handler.removeCallbacks(tick)
         saveCurrent(thenSync = true)
         player.removeListener(this)
+    }
+
+    private fun startSession(videoId: String) {
+        sessionVideoId = videoId
+        sessionStartedAt = clock()
     }
 
     /** With [thenSync], a sync is requested even when there's nothing to save, for earlier changes. */
@@ -111,5 +133,8 @@ internal class ProgressTracker(
 
     private companion object {
         const val SAVE_INTERVAL_MS = 10_000L
+
+        /** Only jump to the saved place if the user hasn't already moved on in the video. */
+        const val RESUME_WINDOW_MS = 3_000L
     }
 }
