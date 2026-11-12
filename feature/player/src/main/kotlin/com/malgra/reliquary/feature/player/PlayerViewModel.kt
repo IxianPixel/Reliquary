@@ -1,8 +1,8 @@
 package com.malgra.reliquary.feature.player
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -163,7 +163,7 @@ internal fun Video.toMediaItem(localFile: Uri? = null, playlistId: String? = nul
                 .setArtworkUri(thumbnailUrl?.toUri())
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
-                .apply { if (playlistId != null) setExtras(bundleOf(EXTRA_PLAYLIST_ID to playlistId)) }
+                .apply { if (playlistId != null) setExtras(Bundle().apply { putString(EXTRA_PLAYLIST_ID, playlistId) }) }
                 .build(),
         )
         .build()

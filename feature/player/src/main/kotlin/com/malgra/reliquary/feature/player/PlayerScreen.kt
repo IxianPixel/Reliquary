@@ -1,65 +1,47 @@
 package com.malgra.reliquary.feature.player
 
-import androidx.compose.ui.layout.layout
-import com.malgra.reliquary.core.ui.VideoListItem
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.semantics.setProgress
-import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.Canvas
-import androidx.media3.common.util.UnstableApi
-import androidx.annotation.OptIn as UnstableOptIn
-import android.annotation.SuppressLint
-import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.text.format.Formatter
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,28 +49,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
-import androidx.media3.session.MediaController
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.ContentFrame
+import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberProgressStateWithTickInterval
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
@@ -99,147 +87,20 @@ import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.ui.ChannelAvatar
-import com.malgra.reliquary.core.ui.R as UiR
 import com.malgra.reliquary.core.ui.ServerImage
+import com.malgra.reliquary.core.ui.VideoListItem
 import com.malgra.reliquary.core.ui.compactCount
 import com.malgra.reliquary.core.ui.formatDate
 import com.malgra.reliquary.core.ui.formatDuration
 import com.malgra.reliquary.core.ui.metaLine
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
-
-/**
- * The player: video on top and details below in portrait; the video alone,
- * full screen, in landscape. Playback lives in [PlaybackService], so leaving
- * this screen keeps it going in the mini-player.
- */
-// The full-screen button locks to landscape on purpose; leaving the player unlocks it.
-@SuppressLint("SourceLockedOrientationActivity")
-@Composable
-fun PlayerScreen(
-    videoId: String,
-    playlistId: String?,
-    controller: MediaController?,
-    onBack: () -> Unit,
-    onOpenChannel: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: PlayerViewModel = hiltViewModel<PlayerViewModel, PlayerViewModel.Factory>(
-        key = "$videoId/$playlistId",
-        creationCallback = { factory -> factory.create(videoId, playlistId) },
-    ),
-) {
-    val video by viewModel.video.collectAsStateWithLifecycle()
-    val channel by viewModel.channel.collectAsStateWithLifecycle()
-    val download by viewModel.download.collectAsStateWithLifecycle()
-    val queue by viewModel.queue.collectAsStateWithLifecycle()
-    var unavailable by remember { mutableStateOf(false) }
-    // Set once the player holds what this screen asked for; until then, follow nothing.
-    var loaded by remember { mutableStateOf(false) }
-
-    // Load this video (and its playlist) unless it's already what's playing, e.g. from the mini-player.
-    LaunchedEffect(controller, videoId, playlistId) {
-        val player = controller ?: return@LaunchedEffect
-        val current = player.currentMediaItem
-        val alreadyPlaying = current?.mediaId == videoId && (playlistId == null || current.playlistId == playlistId)
-        if (!alreadyPlaying) {
-            val request = viewModel.playbackRequest()
-            if (request == null) {
-                unavailable = true
-                return@LaunchedEffect
-            }
-            player.setMediaItems(request.items, request.startIndex, request.startPositionMs)
-            player.prepare()
-            player.play()
-        }
-        loaded = true
-    }
-
-    // Follow the queue as it moves on, so the details match what's playing.
-    if (controller != null) {
-        val nowPlaying by currentMediaItemState(controller)
-        LaunchedEffect(nowPlaying?.mediaId, loaded) {
-            val item = nowPlaying ?: return@LaunchedEffect
-            if (loaded) viewModel.onNowPlaying(item.mediaId, item.playlistId)
-        }
-    }
-
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val activity = LocalActivity.current
-    SystemBarsHidden(hidden = landscape)
-    DisposableEffect(activity) {
-        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
-    }
-    val toggleFullScreen = {
-        activity?.requestedOrientation = if (landscape) {
-            ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        }
-    }
-    BackHandler(enabled = landscape) {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
-    }
-
-    if (landscape) {
-        VideoArea(
-            player = controller,
-            video = video,
-            fullScreen = true,
-            onToggleFullScreen = toggleFullScreen,
-            onMinimise = onBack,
-            modifier = modifier.fillMaxSize(),
-        )
-        return
-    }
-
-    Column(modifier = modifier.fillMaxSize()) {
-        Box(Modifier.background(Color.Black).statusBarsPadding()) {
-            VideoArea(
-                player = controller,
-                video = video,
-                fullScreen = false,
-                onToggleFullScreen = toggleFullScreen,
-                onMinimise = onBack,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
-            )
-        }
-        when {
-            video != null -> Details(
-                video = video!!,
-                channel = channel,
-                download = download,
-                onDownload = viewModel::startDownload,
-                onRemoveDownload = viewModel::removeDownload,
-                onSetWatched = { watched ->
-                    if (watched) controller?.pause()
-                    viewModel.setWatched(watched)
-                },
-                onOpenChannel = onOpenChannel,
-                queue = queue,
-                onPlayQueued = { index ->
-                    controller?.seekToDefaultPosition(index)
-                    controller?.play()
-                },
-                modifier = Modifier.weight(1f),
-            )
-            unavailable -> Text(
-                stringResource(R.string.player_not_found),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-            )
-        }
-    }
-}
+import androidx.annotation.OptIn as UnstableOptIn
+import com.malgra.reliquary.core.ui.R as UiR
 
 /** Hides the status and navigation bars (swipe to peek) while [hidden]. */
 @Composable
-private fun SystemBarsHidden(hidden: Boolean) {
+internal fun SystemBarsHidden(hidden: Boolean) {
     val window = LocalActivity.current?.window ?: return
     val view = LocalView.current
     DisposableEffect(hidden, window) {
@@ -280,21 +141,34 @@ private val FullScreenControls = ControlSizes(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @UnstableOptIn(UnstableApi::class) // ContentFrame, progress state
 @Composable
-private fun VideoArea(
+/**
+ * The video with its controls. While not [interactive] (the player sheet is
+ * collapsed or moving) it's just the picture: no controls, and taps pass to
+ * the sheet. [surfaceType] TEXTURE_VIEW resizes smoothly as the sheet moves.
+ */
+internal fun VideoArea(
     player: Player?,
     video: Video?,
     fullScreen: Boolean,
     onToggleFullScreen: () -> Unit,
     onMinimise: () -> Unit,
     modifier: Modifier = Modifier,
+    interactive: Boolean = true,
+    surfaceType: Int = SURFACE_TYPE_SURFACE_VIEW,
 ) {
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
     Box(
         modifier = modifier
             .background(Color.Black)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                controlsVisible = !controlsVisible
-            },
+            .then(
+                if (interactive) {
+                    Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                        controlsVisible = !controlsVisible
+                    }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         if (player == null) {
             ServerImage(url = video?.thumbnailUrl, modifier = Modifier.fillMaxSize())
@@ -317,7 +191,8 @@ private fun VideoArea(
             }
         }
 
-        ContentFrame(player, Modifier.fillMaxSize())
+        ContentFrame(player, Modifier.fillMaxSize(), surfaceType)
+        if (!interactive) return@Box
 
         if (status.state == Player.STATE_BUFFERING) {
             LoadingIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(sizes.play))
@@ -572,7 +447,7 @@ private fun SeekBar(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Details(
+internal fun Details(
     video: Video,
     channel: Channel?,
     download: Download?,

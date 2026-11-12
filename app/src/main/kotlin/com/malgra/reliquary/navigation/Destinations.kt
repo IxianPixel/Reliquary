@@ -12,8 +12,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object Search : NavKey
 @Serializable data object Settings : NavKey
-/** [playlistId] plays the video as part of that playlist's queue. */
-@Serializable data class Player(val videoId: String, val playlistId: String? = null) : NavKey
 @Serializable data class ChannelDetail(val channelId: String) : NavKey
 @Serializable data class PlaylistDetail(val playlistId: String) : NavKey
 
