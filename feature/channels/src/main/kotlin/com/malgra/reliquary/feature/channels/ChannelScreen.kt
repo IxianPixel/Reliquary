@@ -130,7 +130,11 @@ private fun LazyListScope.videoItems(
     pagingHeader(videos) {
         EmptyPanel(
             stringResource(
-                if (filter == WatchFilter.Unwatched) R.string.channel_empty_unwatched else R.string.channel_empty_videos,
+                when (filter) {
+                    WatchFilter.All -> R.string.channel_empty_videos
+                    WatchFilter.Unwatched -> R.string.channel_empty_unwatched
+                    WatchFilter.OnDevice -> R.string.channel_empty_on_device
+                },
             ),
         )
     }
@@ -278,6 +282,7 @@ private fun FilterRow(selected: WatchFilter, onSelect: (WatchFilter) -> Unit) {
                         when (filter) {
                             WatchFilter.All -> R.string.channel_filter_all
                             WatchFilter.Unwatched -> R.string.channel_filter_unwatched
+                            WatchFilter.OnDevice -> R.string.channel_filter_on_device
                         },
                     ),
                 )

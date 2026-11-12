@@ -2,6 +2,7 @@ package com.malgra.reliquary
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -57,13 +58,14 @@ fun ReliquaryApp(viewModel: MainViewModel = hiltViewModel()) {
         when (session) {
             SessionState.Loading -> Unit // the window background shows until the stored session is read
             is SessionState.SignedOut -> OnboardingRoute()
-            is SessionState.SignedIn -> MainShell()
+            is SessionState.SignedIn -> MainShell(viewModel)
         }
     }
 }
 
 @Composable
-private fun MainShell() {
+private fun MainShell(viewModel: MainViewModel) {
+    val pendingSync by viewModel.pendingSync.collectAsStateWithLifecycle()
     val backStack = rememberNavBackStack(Home)
     // The tab whose stack is showing: the nearest top-level key from the top of the stack.
     val selectedTab = backStack.lastOrNull { key -> TopLevelDestination.entries.any { it.key == key } }
@@ -80,6 +82,11 @@ private fun MainShell() {
                     onClick = { backStack.selectTab(destination.key) },
                     icon = { Icon(painterResource(destination.icon), contentDescription = null) },
                     label = { Text(destination.label) },
+                    badge = if (destination == TopLevelDestination.DOWNLOADS && pendingSync > 0) {
+                        { Badge { Text(pendingSync.toString()) } }
+                    } else {
+                        null
+                    },
                 )
             }
         },

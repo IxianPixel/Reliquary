@@ -2,6 +2,7 @@ package com.malgra.reliquary.core.data.download
 
 import android.content.Context
 import android.os.Environment
+import android.os.storage.StorageManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -22,6 +23,16 @@ class DownloadFiles @Inject constructor(@ApplicationContext private val context:
     fun complete(videoId: String): File = File(dir, "${safe(videoId)}.mp4")
 
     fun partial(videoId: String): File = File(dir, "${safe(videoId)}.mp4.part")
+
+    /** Bytes used by downloads (finished and partial). */
+    fun usedBytes(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0
+
+    /** Space downloads can use, counting cached data the system would clear to make room. */
+    fun freeBytes(): Long {
+        val storage = context.getSystemService(StorageManager::class.java)
+        return runCatching { storage.getAllocatableBytes(storage.getUuidForPath(dir)) }
+            .getOrElse { dir.usableSpace }
+    }
 
     /** Every downloaded and partial file, e.g. on sign-out. */
     fun deleteAll() {

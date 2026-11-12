@@ -32,4 +32,5 @@ object ReliquaryIcons {
     @DrawableRes val ChevronDown = R.drawable.ic_chevron_down
     @DrawableRes val ChevronRight = R.drawable.ic_chevron_right
     @DrawableRes val Sync = R.drawable.ic_sync
+    @DrawableRes val Offline = R.drawable.ic_offline
 }

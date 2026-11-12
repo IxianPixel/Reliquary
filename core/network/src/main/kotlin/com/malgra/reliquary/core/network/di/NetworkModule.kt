@@ -2,6 +2,7 @@ package com.malgra.reliquary.core.network.di
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import com.malgra.reliquary.core.network.ReachabilityInterceptor
 import com.malgra.reliquary.core.network.auth.AuthInterceptor
 import dagger.Module
 import dagger.Provides
@@ -31,10 +32,12 @@ object NetworkModule {
     @Singleton
     fun okHttpClient(
         authInterceptor: AuthInterceptor,
+        reachabilityInterceptor: ReachabilityInterceptor,
         @ApplicationContext context: Context,
     ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(reachabilityInterceptor)
         .addInterceptor(authInterceptor)
         .apply {
             val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0

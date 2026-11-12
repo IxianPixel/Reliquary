@@ -104,7 +104,7 @@ class AuthInterceptor @Inject constructor(
             else -> false
         }
 
-        internal fun sameOrigin(url: HttpUrl, base: HttpUrl): Boolean =
+        fun sameOrigin(url: HttpUrl, base: HttpUrl): Boolean =
             url.scheme == base.scheme && url.host == base.host && url.port == base.port
     }
 }

@@ -88,8 +88,8 @@ data class Playlist(
     val archivedCount: Int,
 )
 
-/** Filter for a channel's video list. "On this device" arrives with downloads. */
-enum class WatchFilter { All, Unwatched }
+/** Filter for a channel's video list. */
+enum class WatchFilter { All, Unwatched, OnDevice }
 
 /** Why loading failed, in terms a screen can explain. */
 enum class LoadError { Offline, ServerError, Unexpected }

@@ -3,6 +3,7 @@ package com.malgra.reliquary.core.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.getValue
@@ -189,8 +190,49 @@ fun VideoCard(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) 
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 VideoTitle(video.title)
-                Meta(metaLine(video.channelName, watchStateText(video)))
+                Meta(
+                    metaLine(
+                        video.channelName,
+                        watchStateText(video),
+                        if (video.syncPending) stringResource(R.string.ui_not_synced) else null,
+                    ),
+                )
             }
+        }
+        if (actions != null) VideoMenu(video, actions, menuOpen, onDismiss = { menuOpen = false })
+    }
+}
+
+/** A video in a two-column grid ("On this device" when offline); long press for its menu. */
+@Composable
+fun VideoGridItem(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val actions = LocalVideoActions.current
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .videoClicks(
+                    onClick = onClick,
+                    onLongClick = actions?.let { { menuOpen = true } },
+                    longClickLabel = stringResource(R.string.ui_video_options),
+                    haptics = LocalHapticFeedback.current,
+                )
+                .alpha(if (video.watched) WATCHED_ALPHA else 1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            VideoThumbnail(
+                url = video.thumbnailUrl,
+                duration = video.duration,
+                progress = video.progress,
+                compact = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f),
+            )
+            VideoTitle(video.title, compact = true)
+            Meta(video.channelName)
         }
         if (actions != null) VideoMenu(video, actions, menuOpen, onDismiss = { menuOpen = false })
     }

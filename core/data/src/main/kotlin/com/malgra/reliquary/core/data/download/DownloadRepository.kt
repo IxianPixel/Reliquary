@@ -1,6 +1,7 @@
 package com.malgra.reliquary.core.data.download
 
 import com.malgra.reliquary.core.data.library.toModel
+import com.malgra.reliquary.core.data.settings.AppSettings
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.DownloadEntity
 import com.malgra.reliquary.core.model.Download
@@ -16,7 +17,8 @@ import javax.inject.Singleton
 
 /** Runs downloads in the background (WorkManager in the app). */
 interface DownloadScheduler {
-    fun start(videoId: String)
+    /** [replace] restarts a queued or running job, e.g. to change its network rule; it resumes. */
+    fun start(videoId: String, wifiOnly: Boolean, replace: Boolean = false)
     fun cancel(videoId: String)
     fun cancelAll()
 }
@@ -26,6 +28,7 @@ class DownloadRepository @Inject constructor(
     private val db: ReliquaryDatabase,
     private val files: DownloadFiles,
     private val scheduler: DownloadScheduler,
+    private val settings: AppSettings,
 ) {
     private val downloads = db.downloadDao()
 
@@ -48,7 +51,13 @@ class DownloadRepository @Inject constructor(
                 createdAtMillis = existing?.createdAtMillis ?: System.currentTimeMillis(),
             ),
         )
-        scheduler.start(videoId)
+        scheduler.start(videoId, settings.wifiOnlyDownloads())
+    }
+
+    /** Applies a changed Wi-Fi-only setting to downloads that haven't finished. */
+    suspend fun setWifiOnly(enabled: Boolean) {
+        settings.setWifiOnlyDownloads(enabled)
+        downloads.unfinishedIds().forEach { scheduler.start(it, enabled, replace = true) }
     }
 
     /** Cancels a download in progress, or deletes a finished one. */
@@ -58,11 +67,22 @@ class DownloadRepository @Inject constructor(
         withContext(Dispatchers.IO) { files.delete(videoId) }
     }
 
+    /** Space used by downloads and space free, re-read whenever the downloads change. */
+    fun storage(): Flow<Storage> = downloads.observeAll().map {
+        withContext(Dispatchers.IO) { Storage(files.usedBytes(), files.freeBytes()) }
+    }
+
     /** The finished file for [videoId], if there is one. */
     suspend fun localFile(videoId: String): File? = withContext(Dispatchers.IO) {
         val row = downloads.get(videoId)
         files.complete(videoId).takeIf { row?.state == DownloadStatus.Completed.name && it.exists() }
     }
+}
+
+data class Storage(val usedBytes: Long, val freeBytes: Long) {
+    /** Share of the space downloads could have (used + free) that they use. */
+    val usedFraction: Float
+        get() = if (usedBytes + freeBytes > 0) usedBytes.toFloat() / (usedBytes + freeBytes) else 0f
 }
 
 private fun DownloadEntity.toModel() = Download(

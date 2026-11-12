@@ -33,6 +33,11 @@ annotation class ApplicationScope
 @Retention(AnnotationRetention.BINARY)
 annotation class SessionStore
 
+/** DataStore holding the user's app settings. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class SettingsStore
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
@@ -47,6 +52,12 @@ object DataModule {
     @SessionStore
     fun sessionDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("session") }
+
+    @Provides
+    @Singleton
+    @SettingsStore
+    fun settingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
 }
 
 @Module

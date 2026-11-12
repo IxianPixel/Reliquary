@@ -1,6 +1,9 @@
 package com.malgra.reliquary.core.data.library
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.map
 import androidx.room.withTransaction
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.ListingStateEntity
@@ -31,22 +34,31 @@ class VideoRepository internal constructor(
     fun recentlyAdded(): Flow<PagingData<Video>> =
         pager(ListKeys.RECENTLY_ADDED) { page -> videos(page = page, sort = "downloaded", order = "desc") }
 
-    /** Newest published first. */
+    /** Newest published first. On-device videos come from this device only, so they work offline. */
     fun channelVideos(channelId: String, type: VideoType, filter: WatchFilter): Flow<PagingData<Video>> =
-        pager(ListKeys.channelVideos(channelId, type, filter)) { page ->
-            videos(
-                page = page,
-                channel = channelId,
-                type = type.apiValue,
-                watch = if (filter == WatchFilter.Unwatched) "unwatched" else null,
-                sort = "published",
-                order = "desc",
-            )
+        if (filter == WatchFilter.OnDevice) {
+            Pager(PagingConfig(pageSize = 20, enablePlaceholders = false)) {
+                videos.downloadedPagingSource(channelId, type.apiValue)
+            }.flow.map { data -> data.map { it.toModel() } }
+        } else {
+            pager(ListKeys.channelVideos(channelId, type, filter)) { page ->
+                videos(
+                    page = page,
+                    channel = channelId,
+                    type = type.apiValue,
+                    watch = if (filter == WatchFilter.Unwatched) "unwatched" else null,
+                    sort = "published",
+                    order = "desc",
+                )
+            }
         }
 
     /** In playlist order: the server sorts by the playlist's own index. */
     fun playlistVideos(playlistId: String): Flow<PagingData<Video>> =
         pager(ListKeys.playlistVideos(playlistId)) { page -> videos(page = page, playlist = playlistId) }
+
+    /** Downloaded videos, most recently downloaded first. */
+    fun downloaded(): Flow<List<Video>> = videos.observeDownloaded().map { rows -> rows.map { it.toModel() } }
 
     /** Videos with a saved position, as last fetched. */
     fun continueWatching(): Flow<List<Video>> =

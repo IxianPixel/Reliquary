@@ -38,4 +38,5 @@
     <string name="ui_menu_mark_watched">Mark watched</string>
     <string name="ui_menu_mark_unwatched">Mark unwatched</string>
     <string name="ui_downloaded">Downloaded</string>
+    <string name="ui_not_synced">Not synced</string>
 </resources>

@@ -68,6 +68,25 @@ interface VideoDao {
     )
     fun observeListing(listKey: String): Flow<List<VideoWithPending>>
 
+    /** A channel's downloaded videos of one type, newest published first. */
+    @Query(
+        """
+        SELECT $VIDEO_WITH_PENDING FROM video $VIDEO_JOINS
+        WHERE video.channelId = :channelId AND video.type = :type AND download.state = 'Completed'
+        ORDER BY video.publishedEpochSeconds DESC
+        """,
+    )
+    fun downloadedPagingSource(channelId: String, type: String): PagingSource<Int, VideoWithPending>
+
+    /** Every downloaded video, most recently downloaded first. */
+    @Query(
+        """
+        SELECT $VIDEO_WITH_PENDING FROM video $VIDEO_JOINS
+        WHERE download.state = 'Completed' ORDER BY download.createdAtMillis DESC
+        """,
+    )
+    fun observeDownloaded(): Flow<List<VideoWithPending>>
+
     /** Offline fallback for search: a plain substring match on cached rows. */
     @Query(
         """
@@ -199,6 +218,9 @@ interface DownloadDao {
         """,
     )
     fun observeAll(): Flow<List<DownloadWithVideo>>
+
+    @Query("SELECT videoId FROM download WHERE state != 'Completed'")
+    suspend fun unfinishedIds(): List<String>
 
     @Upsert suspend fun upsert(download: DownloadEntity)
 

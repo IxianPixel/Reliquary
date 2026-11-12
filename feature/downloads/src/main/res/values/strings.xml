@@ -6,8 +6,10 @@
         <item quantity="one">%d progress update waiting to sync</item>
         <item quantity="other">%d progress updates waiting to sync</item>
     </plurals>
+    <string name="downloads_storage">%1$s used by downloads · %2$s free</string>
     <string name="downloads_on_device">On this device · %s</string>
     <string name="downloads_waiting">Waiting for a connection</string>
+    <string name="downloads_waiting_wifi">Waiting for Wi-Fi</string>
     <string name="downloads_failed">Download failed. Open the video to try again.</string>
     <string name="downloads_percent">%d%%</string>
     <string name="downloads_missing_video">Video details aren’t cached</string>

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.malgra.reliquary.core.data.download.Storage
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.DownloadedVideo
@@ -54,6 +55,8 @@ fun DownloadsScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val pendingSync by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
+    val wifiOnly by viewModel.wifiOnly.collectAsStateWithLifecycle()
+    val storage by viewModel.storage.collectAsStateWithLifecycle()
     var removing by remember { mutableStateOf<DownloadedVideo?>(null) }
 
     LazyColumn(contentPadding = WindowInsets.statusBars.asPaddingValues(), modifier = modifier.fillMaxSize()) {
@@ -65,6 +68,9 @@ fun DownloadsScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
                     .semantics { heading() },
             )
+        }
+        storage?.takeIf { (items?.isNotEmpty() == true) }?.let { space ->
+            item(key = "storage") { StorageMeter(space) }
         }
         if (pendingSync > 0) {
             item(key = "sync") {
@@ -94,6 +100,7 @@ fun DownloadsScreen(
             else -> items(list, key = { it.download.videoId }) { item ->
                 DownloadRow(
                     item = item,
+                    wifiOnly = wifiOnly,
                     onOpen = { onOpenVideo(item.download.videoId) },
                     onRemove = {
                         if (item.download.status == DownloadStatus.Completed) removing = item else viewModel.remove(item.download.videoId)
@@ -120,7 +127,30 @@ fun DownloadsScreen(
 }
 
 @Composable
-private fun DownloadRow(item: DownloadedVideo, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun StorageMeter(storage: Storage) {
+    val context = LocalContext.current
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        LinearProgressIndicator(
+            progress = { storage.usedFraction.coerceAtLeast(0.01f) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(
+                R.string.downloads_storage,
+                Formatter.formatShortFileSize(context, storage.usedBytes),
+                Formatter.formatShortFileSize(context, storage.freeBytes),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun DownloadRow(item: DownloadedVideo, wifiOnly: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
     val download = item.download
     val context = LocalContext.current
     Row(
@@ -170,7 +200,7 @@ private fun DownloadRow(item: DownloadedVideo, onOpen: () -> Unit, onRemove: () 
                             Formatter.formatShortFileSize(context, download.totalBytes),
                         )
                         DownloadStatus.Failed -> stringResource(R.string.downloads_failed)
-                        else -> stringResource(R.string.downloads_waiting)
+                        else -> stringResource(if (wifiOnly) R.string.downloads_waiting_wifi else R.string.downloads_waiting)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

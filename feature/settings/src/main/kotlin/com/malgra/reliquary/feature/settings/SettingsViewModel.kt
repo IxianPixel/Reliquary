@@ -3,7 +3,9 @@ package com.malgra.reliquary.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.malgra.reliquary.core.data.auth.AuthRepository
+import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.session.SessionRepository
+import com.malgra.reliquary.core.data.settings.AppSettings
 import com.malgra.reliquary.core.data.session.SessionState
 import com.malgra.reliquary.core.model.Credentials
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,7 +27,16 @@ data class AccountInfo(
 class SettingsViewModel @Inject constructor(
     sessions: SessionRepository,
     private val auth: AuthRepository,
+    private val downloads: DownloadRepository,
+    settings: AppSettings,
 ) : ViewModel() {
+
+    val wifiOnlyDownloads: StateFlow<Boolean> = settings.wifiOnlyDownloads
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setWifiOnlyDownloads(enabled: Boolean) {
+        viewModelScope.launch { downloads.setWifiOnly(enabled) }
+    }
 
     val account: StateFlow<AccountInfo?> = sessions.state
         .map { state ->
