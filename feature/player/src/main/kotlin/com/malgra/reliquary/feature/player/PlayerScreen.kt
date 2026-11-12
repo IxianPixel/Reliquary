@@ -1,5 +1,18 @@
 package com.malgra.reliquary.feature.player
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.Canvas
 import androidx.media3.common.util.UnstableApi
 import androidx.annotation.OptIn as UnstableOptIn
 import android.annotation.SuppressLint
@@ -37,8 +50,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
@@ -218,8 +229,31 @@ private fun SystemBarsHidden(hidden: Boolean) {
     }
 }
 
+/** Control sizes: compact over the small portrait video, roomier full screen. */
+private class ControlSizes(
+    val play: Dp,
+    val playIcon: Dp,
+    val playCornerPaused: Dp,
+    val playCornerPlaying: Dp,
+    val skip: Dp,
+    val skipIcon: Dp,
+    val gap: Dp,
+    val track: Dp,
+    val knob: Dp,
+)
+
+private val CompactControls = ControlSizes(
+    play = 56.dp, playIcon = 26.dp, playCornerPaused = 28.dp, playCornerPlaying = 16.dp,
+    skip = 40.dp, skipIcon = 24.dp, gap = 20.dp, track = 3.dp, knob = 12.dp,
+)
+
+private val FullScreenControls = ControlSizes(
+    play = 72.dp, playIcon = 32.dp, playCornerPaused = 36.dp, playCornerPlaying = 22.dp,
+    skip = 48.dp, skipIcon = 30.dp, gap = 28.dp, track = 4.dp, knob = 14.dp,
+)
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@UnstableOptIn(UnstableApi::class) // ContentFrame
+@UnstableOptIn(UnstableApi::class) // ContentFrame, progress state
 @Composable
 private fun VideoArea(
     player: Player?,
@@ -242,13 +276,17 @@ private fun VideoArea(
             return@Box
         }
         val status by playbackStatusState(player)
+        val progress = rememberProgressStateWithTickInterval(player, PROGRESS_TICK_MS)
+        // Where a drag on the seek bar is, 0..1; the controls stay up while it's set.
+        var scrub by remember { mutableStateOf<Float?>(null) }
+        val sizes = if (fullScreen) FullScreenControls else CompactControls
         val view = LocalView.current
         DisposableEffect(status.isPlaying) {
             view.keepScreenOn = status.isPlaying
             onDispose { view.keepScreenOn = false }
         }
-        LaunchedEffect(controlsVisible, status.isPlaying) {
-            if (controlsVisible && status.isPlaying) {
+        LaunchedEffect(controlsVisible, status.isPlaying, scrub != null) {
+            if (controlsVisible && status.isPlaying && scrub == null) {
                 delay(CONTROLS_TIMEOUT_MS)
                 controlsVisible = false
             }
@@ -257,7 +295,7 @@ private fun VideoArea(
         ContentFrame(player, Modifier.fillMaxSize())
 
         if (status.state == Player.STATE_BUFFERING) {
-            LoadingIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(64.dp))
+            LoadingIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(sizes.play))
         }
         status.error?.let {
             Text(
@@ -268,16 +306,47 @@ private fun VideoArea(
             )
         }
 
+        val duration = progress.durationMs.coerceAtLeast(0)
+        val played = if (duration > 0) (progress.currentPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        val showControls = controlsVisible || !status.isPlaying || scrub != null
+
+        // With the controls hidden, a hairline still shows how far in you are.
+        if (!showControls && !fullScreen && duration > 0) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(Color.White.copy(alpha = 0.3f)),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(played)
+                        .height(2.dp)
+                        .background(OverlayColors.Progress),
+                )
+            }
+        }
+
         AnimatedVisibility(
-            visible = controlsVisible || !status.isPlaying,
+            visible = showControls,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
         ) {
             Controls(
                 player = player,
+                sizes = sizes,
                 showCenter = status.state != Player.STATE_BUFFERING && status.error == null,
                 fullScreen = fullScreen,
+                positionMs = scrub?.let { (it * duration).toLong() } ?: progress.currentPositionMs,
+                durationMs = duration,
+                fraction = scrub ?: played,
+                onScrub = { scrub = it.coerceIn(0f, 1f) },
+                onScrubEnd = {
+                    scrub?.let { player.seekTo((it * duration).toLong()) }
+                    scrub = null
+                },
                 onToggleFullScreen = onToggleFullScreen,
                 onMinimise = onMinimise,
             )
@@ -288,8 +357,14 @@ private fun VideoArea(
 @Composable
 private fun Controls(
     player: Player,
+    sizes: ControlSizes,
     showCenter: Boolean,
     fullScreen: Boolean,
+    positionMs: Long,
+    durationMs: Long,
+    fraction: Float,
+    onScrub: (Float) -> Unit,
+    onScrubEnd: () -> Unit,
     onToggleFullScreen: () -> Unit,
     onMinimise: () -> Unit,
 ) {
@@ -299,7 +374,7 @@ private fun Controls(
             .background(Color.Black.copy(alpha = 0.35f)),
     ) {
         if (!fullScreen) {
-            IconButton(onClick = onMinimise, modifier = Modifier.padding(4.dp)) {
+            IconButton(onClick = onMinimise, modifier = Modifier.padding(4.dp).size(sizes.skip)) {
                 Icon(
                     painterResource(ReliquaryIcons.ChevronDown),
                     contentDescription = stringResource(R.string.player_minimise),
@@ -309,118 +384,163 @@ private fun Controls(
         }
         if (showCenter) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
+                horizontalArrangement = Arrangement.spacedBy(sizes.gap),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.align(Alignment.Center),
             ) {
-                IconButton(onClick = player::seekBack, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = player::seekBack, modifier = Modifier.size(sizes.skip)) {
                     Icon(
                         painterResource(ReliquaryIcons.Replay10),
                         contentDescription = stringResource(R.string.player_back_10),
                         tint = Color.White,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(sizes.skipIcon),
                     )
                 }
-                PlayPauseButton(player)
-                IconButton(onClick = player::seekForward, modifier = Modifier.size(48.dp)) {
+                PlayPauseButton(player, sizes)
+                IconButton(onClick = player::seekForward, modifier = Modifier.size(sizes.skip)) {
                     Icon(
                         painterResource(ReliquaryIcons.Forward10),
                         contentDescription = stringResource(R.string.player_forward_10),
                         tint = Color.White,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(sizes.skipIcon),
                     )
                 }
             }
         }
-        SeekBar(
-            player = player,
-            fullScreen = fullScreen,
-            onToggleFullScreen = onToggleFullScreen,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(start = 16.dp, end = 8.dp, bottom = 4.dp),
-        )
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = if (fullScreen) 16.dp else 12.dp, end = 4.dp),
+            ) {
+                Text(
+                    stringResource(
+                        R.string.player_time,
+                        formatDuration(positionMs.coerceAtLeast(0).milliseconds),
+                        formatDuration(durationMs.milliseconds),
+                    ),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onToggleFullScreen, modifier = Modifier.size(sizes.skip)) {
+                    Icon(
+                        painterResource(if (fullScreen) ReliquaryIcons.FullscreenExit else ReliquaryIcons.Fullscreen),
+                        contentDescription = stringResource(
+                            if (fullScreen) R.string.player_exit_full_screen else R.string.player_full_screen,
+                        ),
+                        tint = Color.White,
+                    )
+                }
+            }
+            SeekBar(
+                fraction = fraction,
+                enabled = durationMs > 0,
+                track = sizes.track,
+                knob = sizes.knob,
+                onScrub = onScrub,
+                onScrubEnd = onScrubEnd,
+                // Full width along the video's edge in portrait; inset in full screen.
+                modifier = Modifier.padding(horizontal = if (fullScreen) 16.dp else 0.dp),
+            )
+        }
     }
 }
 
 /** Round while paused, a squarer shape while playing, as in the mockup. */
 @UnstableOptIn(UnstableApi::class)
 @Composable
-private fun PlayPauseButton(player: Player) {
+private fun PlayPauseButton(player: Player, sizes: ControlSizes) {
     val state = rememberPlayPauseButtonState(player)
-    val corner by animateDpAsState(if (state.showPlay) 36.dp else 22.dp, label = "play-shape")
+    val corner by animateDpAsState(
+        if (state.showPlay) sizes.playCornerPaused else sizes.playCornerPlaying,
+        label = "play-shape",
+    )
     Surface(
         onClick = state::onClick,
         enabled = state.isEnabled,
         shape = RoundedCornerShape(corner),
         color = OverlayColors.Progress,
         contentColor = Catppuccin.Mocha.base,
-        modifier = Modifier.size(72.dp),
+        modifier = Modifier.size(sizes.play),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(if (state.showPlay) ReliquaryIcons.Play else ReliquaryIcons.Pause),
                 contentDescription = stringResource(if (state.showPlay) R.string.player_play else R.string.player_pause),
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(sizes.playIcon),
             )
         }
     }
 }
 
-@UnstableOptIn(UnstableApi::class)
+/**
+ * A slim seek bar: a thin track with a small knob, in a 24dp-tall touch area.
+ * Tap to jump or drag to scrub; [onScrubEnd] commits the seek. TalkBack can
+ * read and set the position.
+ */
 @Composable
 private fun SeekBar(
-    player: Player,
-    fullScreen: Boolean,
-    onToggleFullScreen: () -> Unit,
+    fraction: Float,
+    enabled: Boolean,
+    track: Dp,
+    knob: Dp,
+    onScrub: (Float) -> Unit,
+    onScrubEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val progress = rememberProgressStateWithTickInterval(player, PROGRESS_TICK_MS)
-    val duration = progress.durationMs.coerceAtLeast(0)
-    var dragging by remember { mutableStateOf<Float?>(null) }
-    val fraction = dragging ?: if (duration > 0) (progress.currentPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-    val shownPosition = dragging?.let { (it * duration).toLong() } ?: progress.currentPositionMs
-    val seekLabel = stringResource(R.string.player_seek)
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Slider(
-            value = fraction,
-            onValueChange = { dragging = it },
-            onValueChangeFinished = {
-                dragging?.let { player.seekTo((it * duration).toLong()) }
-                dragging = null
-            },
-            enabled = duration > 0,
-            colors = SliderDefaults.colors(
-                thumbColor = OverlayColors.Progress,
-                activeTrackColor = OverlayColors.Progress,
-                inactiveTrackColor = Color.White.copy(alpha = 0.3f),
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 8.dp)
-                .semantics { contentDescription = seekLabel },
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(
-                    R.string.player_time,
-                    formatDuration(shownPosition.coerceAtLeast(0).milliseconds),
-                    formatDuration(duration.milliseconds),
-                ),
-                color = Color.White,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onToggleFullScreen) {
-                Icon(
-                    painterResource(if (fullScreen) ReliquaryIcons.FullscreenExit else ReliquaryIcons.Fullscreen),
-                    contentDescription = stringResource(
-                        if (fullScreen) R.string.player_exit_full_screen else R.string.player_full_screen,
-                    ),
-                    tint = Color.White,
-                )
+    val label = stringResource(R.string.player_seek)
+    var width by remember { mutableIntStateOf(1) }
+    val knobInset = knob / 2
+    Box(
+        contentAlignment = Alignment.CenterStart,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .onSizeChanged { width = it.width.coerceAtLeast(1) }
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures { offset ->
+                    onScrub(offset.x / width)
+                    onScrubEnd()
+                }
             }
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectHorizontalDragGestures(
+                    onDragStart = { offset -> onScrub(offset.x / width) },
+                    onDragEnd = onScrubEnd,
+                    onDragCancel = onScrubEnd,
+                ) { change, _ ->
+                    change.consume()
+                    onScrub(change.position.x / width)
+                }
+            }
+            .semantics {
+                contentDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
+                if (enabled) {
+                    setProgress { target ->
+                        onScrub(target)
+                        onScrubEnd()
+                        true
+                    }
+                }
+            },
+    ) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(knob),
+        ) {
+            val inset = knobInset.toPx()
+            val start = inset
+            val end = size.width - inset
+            val x = start + (end - start) * fraction.coerceIn(0f, 1f)
+            val y = size.height / 2
+            val stroke = track.toPx()
+            drawLine(Color.White.copy(alpha = 0.3f), Offset(start, y), Offset(end, y), stroke, StrokeCap.Round)
+            drawLine(OverlayColors.Progress, Offset(start, y), Offset(x, y), stroke, StrokeCap.Round)
+            if (enabled) drawCircle(OverlayColors.Progress, radius = knob.toPx() / 2, center = Offset(x, y))
         }
     }
 }

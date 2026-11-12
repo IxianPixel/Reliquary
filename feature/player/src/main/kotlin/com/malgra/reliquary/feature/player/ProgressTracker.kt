@@ -13,7 +13,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Saves the place in the playing video to Room: every 10 seconds while it
  * plays, on pause, seek and end, and when the player goes away. Saves are
- * local and cheap; a sync to the server is requested when playback stops.
+ * local and cheap; a sync to the server is requested when playback stops,
+ * and after a seek while paused.
  *
  * Player callbacks arrive on the main thread, where the position is read;
  * the write runs in [scope], which outlives the service.
@@ -52,8 +53,7 @@ internal class ProgressTracker(
             }
             handler.postDelayed(tick, SAVE_INTERVAL_MS)
         } else {
-            saveCurrent()
-            progress.requestSync()
+            saveCurrent(thenSync = true)
         }
     }
 
@@ -69,38 +69,44 @@ internal class ProgressTracker(
         when {
             // Another video replaced this one: keep where this one got to.
             oldId == session && newId != session -> {
-                save(session, oldPosition.positionMs)
-                progress.requestSync()
+                save(session, oldPosition.positionMs, thenSync = true)
                 sessionVideoId = null
             }
-            reason == Player.DISCONTINUITY_REASON_SEEK && newId == session -> save(session, newPosition.positionMs)
+            reason == Player.DISCONTINUITY_REASON_SEEK && newId == session -> {
+                // While playing, the next pause syncs; while paused, nothing else will.
+                save(session, newPosition.positionMs, thenSync = !player.isPlaying)
+            }
         }
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
-        if (playbackState == Player.STATE_ENDED) {
-            saveCurrent()
-            progress.requestSync()
-        }
+        if (playbackState == Player.STATE_ENDED) saveCurrent(thenSync = true)
     }
 
     /** Saves a last time; call before the player is released. */
     fun release() {
         handler.removeCallbacks(tick)
-        saveCurrent()
-        progress.requestSync()
+        saveCurrent(thenSync = true)
         player.removeListener(this)
     }
 
-    private fun saveCurrent() {
-        val session = sessionVideoId ?: return
-        if (player.currentMediaItem?.mediaId != session) return
-        save(session, player.currentPosition)
+    /** With [thenSync], a sync is requested even when there's nothing to save, for earlier changes. */
+    private fun saveCurrent(thenSync: Boolean = false) {
+        val session = sessionVideoId
+        if (session == null || player.currentMediaItem?.mediaId != session) {
+            if (thenSync) progress.requestSync()
+            return
+        }
+        save(session, player.currentPosition, thenSync)
     }
 
-    private fun save(videoId: String, positionMs: Long) {
+    /** The sync request waits for the write, so the sync can't run before the change is saved. */
+    private fun save(videoId: String, positionMs: Long, thenSync: Boolean = false) {
         val start = sessionStartedAt
-        scope.launch { progress.recordPosition(videoId, positionMs.coerceAtLeast(0).milliseconds, start) }
+        scope.launch {
+            progress.recordPosition(videoId, positionMs.coerceAtLeast(0).milliseconds, start)
+            if (thenSync) progress.requestSync()
+        }
     }
 
     private companion object {
