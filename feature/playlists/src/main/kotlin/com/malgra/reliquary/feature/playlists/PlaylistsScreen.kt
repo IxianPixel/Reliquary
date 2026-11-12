@@ -1,5 +1,12 @@
 package com.malgra.reliquary.feature.playlists
 
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
+import com.malgra.reliquary.core.ui.KeepOfflineButton
+import com.malgra.reliquary.core.model.KeepOfflineRule
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -97,6 +104,8 @@ fun PlaylistScreen(
 ) {
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
     val videos = viewModel.videos.collectAsLazyPagingItems()
+    val rule by viewModel.keepOfflineRule.collectAsStateWithLifecycle()
+    var editingRule by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize()) {
         IconButton(
@@ -146,7 +155,7 @@ fun PlaylistScreen(
                                 )
                             }
                         }
-                        Row {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val first = videos.itemSnapshotList.firstOrNull()
                             Button(onClick = { first?.let { onOpenVideo(it.id) } }, enabled = first != null) {
                                 Icon(
@@ -159,6 +168,7 @@ fun PlaylistScreen(
                                     modifier = Modifier.padding(start = ButtonDefaults.IconSpacing),
                                 )
                             }
+                            if (playlist != null) KeepOfflineButton(rule != null, onClick = { editingRule = true })
                         }
                     }
                 }
@@ -175,5 +185,25 @@ fun PlaylistScreen(
                 pagingFooter(videos)
             }
         }
+    }
+
+    val current = playlist
+    if (editingRule && current != null) {
+        val bytes by produceState<Long?>(null) { value = viewModel.typicalVideoBytes() }
+        KeepOfflineSheet(
+            initial = rule ?: KeepOfflineRule.defaultFor(KeepOfflineRule.Kind.Playlist, current.id, current.name, current.thumbnailUrl),
+            isExisting = rule != null,
+            typicalVideoBytes = bytes,
+            playlistSize = current.archivedCount,
+            onSave = {
+                viewModel.saveRule(it)
+                editingRule = false
+            },
+            onDelete = {
+                viewModel.deleteRule()
+                editingRule = false
+            },
+            onDismiss = { editingRule = false },
+        )
     }
 }

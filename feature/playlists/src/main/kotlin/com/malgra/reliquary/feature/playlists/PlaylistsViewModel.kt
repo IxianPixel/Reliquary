@@ -6,6 +6,8 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
+import com.malgra.reliquary.core.data.rules.KeepOfflineRepository
+import com.malgra.reliquary.core.model.KeepOfflineRule
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.Video
 import dagger.assisted.Assisted
@@ -29,6 +31,7 @@ class PlaylistViewModel @AssistedInject constructor(
     @Assisted val playlistId: String,
     private val playlists: PlaylistRepository,
     videos: VideoRepository,
+    private val keepOffline: KeepOfflineRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -42,11 +45,24 @@ class PlaylistViewModel @AssistedInject constructor(
     /** In the playlist's own order. */
     val videos: Flow<PagingData<Video>> = videos.playlistVideos(playlistId).cachedIn(viewModelScope)
 
+    val keepOfflineRule: StateFlow<KeepOfflineRule?> = keepOffline.rule(KeepOfflineRule.Kind.Playlist, playlistId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         refresh()
     }
 
     fun refresh() {
         viewModelScope.launch { playlists.refreshPlaylist(playlistId) }
+    }
+
+    suspend fun typicalVideoBytes(): Long? = keepOffline.typicalVideoBytes(KeepOfflineRule.Kind.Playlist, playlistId)
+
+    fun saveRule(rule: KeepOfflineRule) {
+        viewModelScope.launch { keepOffline.save(rule) }
+    }
+
+    fun deleteRule() {
+        viewModelScope.launch { keepOffline.delete(KeepOfflineRule.idFor(KeepOfflineRule.Kind.Playlist, playlistId)) }
     }
 }

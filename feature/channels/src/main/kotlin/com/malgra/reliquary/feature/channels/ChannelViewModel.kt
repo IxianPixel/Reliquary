@@ -7,8 +7,10 @@ import androidx.paging.cachedIn
 import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
+import com.malgra.reliquary.core.data.rules.KeepOfflineRepository
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
+import com.malgra.reliquary.core.model.KeepOfflineRule
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
@@ -62,6 +64,7 @@ class ChannelViewModel @AssistedInject constructor(
     private val channels: ChannelRepository,
     videos: VideoRepository,
     playlists: PlaylistRepository,
+    private val keepOffline: KeepOfflineRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -87,8 +90,21 @@ class ChannelViewModel @AssistedInject constructor(
     val videoCount: StateFlow<Int?> = videos.channelVideoCount(channelId, VideoType.Videos, WatchFilter.All)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val keepOfflineRule: StateFlow<KeepOfflineRule?> = keepOffline.rule(KeepOfflineRule.Kind.Channel, channelId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         refresh()
+    }
+
+    suspend fun typicalVideoBytes(): Long? = keepOffline.typicalVideoBytes(KeepOfflineRule.Kind.Channel, channelId)
+
+    fun saveRule(rule: KeepOfflineRule) {
+        viewModelScope.launch { keepOffline.save(rule) }
+    }
+
+    fun deleteRule() {
+        viewModelScope.launch { keepOffline.delete(KeepOfflineRule.idFor(KeepOfflineRule.Kind.Channel, channelId)) }
     }
 
     fun refresh() {

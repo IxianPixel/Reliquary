@@ -120,9 +120,32 @@ data class DownloadEntity(
     /** From the server's Content-Range, else the video's media size; 0 if unknown. */
     val totalBytes: Long,
     val createdAtMillis: Long,
+    /** The keep-offline rule that downloaded it, or null if the user did; only rule downloads are removed automatically. */
+    val ruleId: String? = null,
 )
 
 data class DownloadWithVideo(
     @Embedded val download: DownloadEntity,
     @Embedded(prefix = "video_") val video: VideoEntity?,
+)
+
+/**
+ * Keeps a channel's or playlist's videos downloaded. [id] is "channel:<id>"
+ * or "playlist:<id>", so each source has at most one rule.
+ */
+@Entity(tableName = "keep_offline_rule")
+data class KeepOfflineRuleEntity(
+    @PrimaryKey val id: String,
+    /** "channel" or "playlist". */
+    val kind: String,
+    val sourceId: String,
+    /** Saved with the rule so the list needs no lookups. */
+    val name: String,
+    val thumbnailUrl: String?,
+    /** How many of the newest videos to keep; null keeps a whole playlist. */
+    val keepCount: Int?,
+    val unwatchedOnly: Boolean,
+    val wifiOnly: Boolean,
+    val removeWhenWatched: Boolean,
+    val createdAtMillis: Long,
 )

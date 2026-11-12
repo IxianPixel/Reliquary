@@ -38,10 +38,27 @@ class DownloadRepository @Inject constructor(
         rows.map { DownloadedVideo(it.download.toModel(), it.video?.toModel()) }
     }
 
-    /** Queues the video; downloading starts once there's a connection. */
+    /** Queues the video for the user; it becomes theirs even if a rule downloaded it. */
     suspend fun start(videoId: String) {
         val existing = downloads.get(videoId)
-        if (existing?.state == DownloadStatus.Completed.name && files.complete(videoId).exists()) return
+        if (existing?.state == DownloadStatus.Completed.name && files.complete(videoId).exists()) {
+            if (existing.ruleId != null) downloads.upsert(existing.copy(ruleId = null))
+            return
+        }
+        queue(videoId, existing, ruleId = null, wifiOnly = settings.wifiOnlyDownloads())
+    }
+
+    /**
+     * Queues the video for a keep-offline rule, unless it's already downloaded
+     * or downloading (the user's own downloads stay theirs).
+     */
+    suspend fun startForRule(videoId: String, ruleId: String, wifiOnly: Boolean) {
+        val existing = downloads.get(videoId)
+        if (existing != null && existing.state != DownloadStatus.Failed.name) return
+        queue(videoId, existing, ruleId, wifiOnly)
+    }
+
+    private suspend fun queue(videoId: String, existing: DownloadEntity?, ruleId: String?, wifiOnly: Boolean) {
         downloads.upsert(
             DownloadEntity(
                 videoId = videoId,
@@ -49,15 +66,16 @@ class DownloadRepository @Inject constructor(
                 bytesDownloaded = existing?.bytesDownloaded ?: 0,
                 totalBytes = existing?.totalBytes ?: 0,
                 createdAtMillis = existing?.createdAtMillis ?: System.currentTimeMillis(),
+                ruleId = ruleId,
             ),
         )
-        scheduler.start(videoId, settings.wifiOnlyDownloads())
+        scheduler.start(videoId, wifiOnly)
     }
 
-    /** Applies a changed Wi-Fi-only setting to downloads that haven't finished. */
+    /** Applies a changed Wi-Fi-only setting to the user's unfinished downloads (rules have their own). */
     suspend fun setWifiOnly(enabled: Boolean) {
         settings.setWifiOnlyDownloads(enabled)
-        downloads.unfinishedIds().forEach { scheduler.start(it, enabled, replace = true) }
+        downloads.unfinishedManualIds().forEach { scheduler.start(it, enabled, replace = true) }
     }
 
     /** Cancels a download in progress, or deletes a finished one. */

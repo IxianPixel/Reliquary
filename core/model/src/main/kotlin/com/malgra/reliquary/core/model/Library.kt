@@ -138,3 +138,39 @@ data class Download(
 
 /** A download with its video, for the Downloads tab. [video] is null if it's no longer cached. */
 data class DownloadedVideo(val download: Download, val video: Video?)
+
+/** Keeps a channel's or playlist's videos downloaded automatically. */
+data class KeepOfflineRule(
+    val kind: Kind,
+    val sourceId: String,
+    val name: String,
+    val thumbnailUrl: String?,
+    /** How many of the newest videos to keep; null keeps a whole playlist. */
+    val keepCount: Int?,
+    val unwatchedOnly: Boolean,
+    val wifiOnly: Boolean,
+    val removeWhenWatched: Boolean,
+) {
+    enum class Kind { Channel, Playlist }
+
+    val id: String get() = idFor(kind, sourceId)
+
+    companion object {
+        const val DEFAULT_KEEP_COUNT = 5
+        const val MAX_KEEP_COUNT = 50
+
+        fun idFor(kind: Kind, sourceId: String) = "${kind.name.lowercase()}:$sourceId"
+
+        /** The sheet's starting values for a source with no rule yet, as in the mockup. */
+        fun defaultFor(kind: Kind, sourceId: String, name: String, thumbnailUrl: String?) = KeepOfflineRule(
+            kind = kind,
+            sourceId = sourceId,
+            name = name,
+            thumbnailUrl = thumbnailUrl,
+            keepCount = if (kind == Kind.Playlist) null else DEFAULT_KEEP_COUNT,
+            unwatchedOnly = true,
+            wifiOnly = true,
+            removeWhenWatched = true,
+        )
+    }
+}

@@ -1,5 +1,12 @@
 package com.malgra.reliquary.feature.channels
 
+import com.malgra.reliquary.core.ui.KeepOfflineButton
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
+import com.malgra.reliquary.core.model.KeepOfflineRule
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +93,8 @@ fun ChannelScreen(
     val videoCount by viewModel.videoCount.collectAsStateWithLifecycle()
     val videos = viewModel.videos.collectAsLazyPagingItems()
     val playlists = viewModel.playlists.collectAsLazyPagingItems()
+    val rule by viewModel.keepOfflineRule.collectAsStateWithLifecycle()
+    var editingRule by rememberSaveable { mutableStateOf(false) }
 
     val tabs = channel?.tabs.available()
     LaunchedEffect(tabs, selection.tab) {
@@ -103,7 +112,7 @@ fun ChannelScreen(
     ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item(key = "header", contentType = "header") {
-                ChannelHeader(channel, videoCount, onBack)
+                ChannelHeader(channel, videoCount, onBack, keepingOffline = rule != null, onKeepOffline = { editingRule = true })
             }
             if (tabs.size > 1) {
                 item(key = "tabs", contentType = "tabs") {
@@ -119,6 +128,26 @@ fun ChannelScreen(
                 videoItems(videos, selection.filter, onOpenVideo)
             }
         }
+    }
+
+    val current = channel
+    if (editingRule && current != null) {
+        val bytes by produceState<Long?>(null) { value = viewModel.typicalVideoBytes() }
+        KeepOfflineSheet(
+            initial = rule ?: KeepOfflineRule.defaultFor(KeepOfflineRule.Kind.Channel, current.id, current.name, current.thumbnailUrl),
+            isExisting = rule != null,
+            typicalVideoBytes = bytes,
+            playlistSize = null,
+            onSave = {
+                viewModel.saveRule(it)
+                editingRule = false
+            },
+            onDelete = {
+                viewModel.deleteRule()
+                editingRule = false
+            },
+            onDismiss = { editingRule = false },
+        )
     }
 }
 
@@ -164,7 +193,13 @@ private fun LazyListScope.playlistItems(playlists: LazyPagingItems<Playlist>, on
 
 /** Banner across the top (behind the status bar), with the avatar overlapping its lower edge. */
 @Composable
-private fun ChannelHeader(channel: Channel?, videoCount: Int?, onBack: () -> Unit) {
+private fun ChannelHeader(
+    channel: Channel?,
+    videoCount: Int?,
+    onBack: () -> Unit,
+    keepingOffline: Boolean,
+    onKeepOffline: () -> Unit,
+) {
     val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bannerHeight = 132.dp + statusBar
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -222,6 +257,7 @@ private fun ChannelHeader(channel: Channel?, videoCount: Int?, onBack: () -> Uni
                     )
                 }
             }
+            if (channel != null) KeepOfflineButton(keepingOffline, onKeepOffline)
         }
     }
 }
@@ -290,3 +326,4 @@ private fun FilterRow(selected: WatchFilter, onSelect: (WatchFilter) -> Unit) {
         }
     }
 }
+

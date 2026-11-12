@@ -1,5 +1,14 @@
 package com.malgra.reliquary.feature.downloads
 
+import com.malgra.reliquary.core.ui.keepOfflineSummary
+import com.malgra.reliquary.core.ui.SectionHeader
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
+import com.malgra.reliquary.core.ui.ChannelAvatar
+import com.malgra.reliquary.core.model.KeepOfflineRule
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +66,8 @@ fun DownloadsScreen(
     val pendingSync by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
     val wifiOnly by viewModel.wifiOnly.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
+    val rules by viewModel.rules.collectAsStateWithLifecycle()
+    var editing by remember { mutableStateOf<KeepOfflineRule?>(null) }
     var removing by remember { mutableStateOf<DownloadedVideo?>(null) }
 
     LazyColumn(contentPadding = WindowInsets.statusBars.asPaddingValues(), modifier = modifier.fillMaxSize()) {
@@ -89,11 +100,29 @@ fun DownloadsScreen(
                         pluralStringResource(R.plurals.downloads_pending_sync, pendingSync, pendingSync),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
+                    TextButton(onClick = viewModel::syncNow) { Text(stringResource(R.string.downloads_sync_now)) }
                 }
             }
         }
+        item(key = "rules-header") { SectionHeader(stringResource(R.string.downloads_keep_offline)) }
+        if (rules.isEmpty()) {
+            item(key = "rules-empty") {
+                Text(
+                    stringResource(R.string.downloads_rules_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
+        items(rules, key = { "rule-${it.id}" }) { rule -> RuleRow(rule, onClick = { editing = rule }) }
+
         val list = items
+        if (!list.isNullOrEmpty()) {
+            item(key = "downloads-header") { SectionHeader(stringResource(R.string.downloads_downloaded)) }
+        }
         when {
             list == null -> Unit
             list.isEmpty() -> item(key = "empty") { EmptyPanel(stringResource(R.string.downloads_empty)) }
@@ -110,6 +139,26 @@ fun DownloadsScreen(
         }
     }
 
+    editing?.let { rule ->
+        val bytes by produceState<Long?>(null, rule) { value = viewModel.typicalVideoBytes(rule) }
+        val playlistSize by produceState<Int?>(null, rule) { value = viewModel.playlistSize(rule) }
+        KeepOfflineSheet(
+            initial = rule,
+            isExisting = true,
+            typicalVideoBytes = bytes,
+            playlistSize = playlistSize,
+            onSave = {
+                viewModel.saveRule(it)
+                editing = null
+            },
+            onDelete = {
+                viewModel.deleteRule(rule)
+                editing = null
+            },
+            onDismiss = { editing = null },
+        )
+    }
+
     removing?.let { item ->
         AlertDialog(
             onDismissRequest = { removing = null },
@@ -122,6 +171,50 @@ fun DownloadsScreen(
                 }) { Text(stringResource(R.string.downloads_remove_confirm)) }
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.downloads_keep)) } },
+        )
+    }
+}
+
+@Composable
+private fun RuleRow(rule: KeepOfflineRule, onClick: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        when (rule.kind) {
+            KeepOfflineRule.Kind.Channel -> ChannelAvatar(rule.thumbnailUrl, rule.name, Modifier.size(40.dp))
+            KeepOfflineRule.Kind.Playlist -> Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Icon(
+                    painterResource(ReliquaryIcons.Playlists),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(rule.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                keepOfflineSummary(rule),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+            )
+        }
+        Icon(
+            painterResource(ReliquaryIcons.ChevronRight),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

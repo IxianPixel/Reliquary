@@ -6,6 +6,10 @@
         <item quantity="one">%d progress update waiting to sync</item>
         <item quantity="other">%d progress updates waiting to sync</item>
     </plurals>
+    <string name="downloads_keep_offline">Keep offline</string>
+    <string name="downloads_rules_empty">To keep a channel or playlist downloaded automatically, open it and tap Keep offline.</string>
+    <string name="downloads_sync_now">Sync now</string>
+    <string name="downloads_downloaded">Downloaded</string>
     <string name="downloads_storage">%1$s used by downloads · %2$s free</string>
     <string name="downloads_on_device">On this device · %s</string>
     <string name="downloads_waiting">Waiting for a connection</string>

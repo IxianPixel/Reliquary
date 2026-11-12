@@ -9,6 +9,7 @@ import androidx.room.Upsert
 import com.malgra.reliquary.core.database.entity.ChannelEntity
 import com.malgra.reliquary.core.database.entity.DownloadEntity
 import com.malgra.reliquary.core.database.entity.DownloadWithVideo
+import com.malgra.reliquary.core.database.entity.KeepOfflineRuleEntity
 import com.malgra.reliquary.core.database.entity.ListingItemEntity
 import com.malgra.reliquary.core.database.entity.ListingStateEntity
 import com.malgra.reliquary.core.database.entity.PendingProgressEntity
@@ -29,7 +30,8 @@ internal const val VIDEO_WITH_PENDING = """
     download.state AS download_state,
     download.bytesDownloaded AS download_bytesDownloaded,
     download.totalBytes AS download_totalBytes,
-    download.createdAtMillis AS download_createdAtMillis
+    download.createdAtMillis AS download_createdAtMillis,
+    download.ruleId AS download_ruleId
 """
 
 /** Joins for [VIDEO_WITH_PENDING]; follows `FROM video` or a join onto video. */
@@ -219,8 +221,19 @@ interface DownloadDao {
     )
     fun observeAll(): Flow<List<DownloadWithVideo>>
 
-    @Query("SELECT videoId FROM download WHERE state != 'Completed'")
-    suspend fun unfinishedIds(): List<String>
+    /** Unfinished downloads the user started; rule downloads follow their rule's network setting. */
+    @Query("SELECT videoId FROM download WHERE state != 'Completed' AND ruleId IS NULL")
+    suspend fun unfinishedManualIds(): List<String>
+
+    @Query("SELECT * FROM download WHERE ruleId = :ruleId")
+    suspend fun byRule(ruleId: String): List<DownloadEntity>
+
+    @Query("SELECT videoId FROM download WHERE state = 'Completed'")
+    suspend fun completedIds(): List<String>
+
+    /** Turns a deleted rule's downloads into the user's own, so they stay. */
+    @Query("UPDATE download SET ruleId = NULL WHERE ruleId = :ruleId")
+    suspend fun detachRule(ruleId: String)
 
     @Upsert suspend fun upsert(download: DownloadEntity)
 
@@ -229,4 +242,40 @@ interface DownloadDao {
 
     @Query("DELETE FROM download WHERE videoId = :videoId")
     suspend fun delete(videoId: String)
+}
+
+@Dao
+interface KeepOfflineRuleDao {
+    @Query("SELECT * FROM keep_offline_rule ORDER BY createdAtMillis")
+    fun observeAll(): Flow<List<KeepOfflineRuleEntity>>
+
+    @Query("SELECT * FROM keep_offline_rule ORDER BY createdAtMillis")
+    suspend fun all(): List<KeepOfflineRuleEntity>
+
+    @Query("SELECT * FROM keep_offline_rule WHERE id = :id")
+    fun observe(id: String): Flow<KeepOfflineRuleEntity?>
+
+    @Query("SELECT * FROM keep_offline_rule WHERE id = :id")
+    suspend fun get(id: String): KeepOfflineRuleEntity?
+
+    @Upsert suspend fun upsert(rule: KeepOfflineRuleEntity)
+
+    @Query("DELETE FROM keep_offline_rule WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
+interface VideoStatsDao {
+    /** Typical file size of a channel's videos, for the rule sheet's estimate. */
+    @Query("SELECT AVG(mediaSizeBytes) FROM video WHERE channelId = :channelId AND mediaSizeBytes > 0")
+    suspend fun averageSizeForChannel(channelId: String): Double?
+
+    /** Typical file size of the videos cached for a list (e.g. a playlist). */
+    @Query(
+        """
+        SELECT AVG(video.mediaSizeBytes) FROM listing_item JOIN video ON video.id = listing_item.itemId
+        WHERE listing_item.listKey = :listKey AND video.mediaSizeBytes > 0
+        """,
+    )
+    suspend fun averageSizeForListing(listKey: String): Double?
 }

@@ -39,4 +39,43 @@
     <string name="ui_menu_mark_unwatched">Mark unwatched</string>
     <string name="ui_downloaded">Downloaded</string>
     <string name="ui_not_synced">Not synced</string>
+
+    <string name="keep_offline_title">Keep offline</string>
+    <string name="keep_offline_intro">%s. New videos download automatically and old ones make room.</string>
+    <string name="keep_offline_whole_playlist">Whole playlist</string>
+    <string name="keep_offline_whole_playlist_body">Keep every video in the playlist</string>
+    <string name="keep_offline_count">Videos to keep</string>
+    <string name="keep_offline_count_body">Newest first</string>
+    <string name="keep_offline_fewer">Fewer videos</string>
+    <string name="keep_offline_more">More videos</string>
+    <string name="keep_offline_unwatched">Unwatched only</string>
+    <string name="keep_offline_unwatched_body">Skip videos you’ve already seen</string>
+    <string name="keep_offline_wifi">Wi-Fi only</string>
+    <string name="keep_offline_wifi_body">Wait for an unmetered network</string>
+    <string name="keep_offline_remove">Remove when watched</string>
+    <string name="keep_offline_remove_body">Free space once you finish a video</string>
+    <plurals name="keep_offline_estimate">
+        <item quantity="one">About %1$s for %2$d video, based on file sizes on the server</item>
+        <item quantity="other">About %1$s for %2$d videos, based on file sizes on the server</item>
+    </plurals>
+    <string name="keep_offline_estimate_unknown">Size depends on the videos; open the list once to estimate it</string>
+    <string name="keep_offline_save">Save rule</string>
+    <string name="keep_offline_cancel">Cancel</string>
+    <string name="keep_offline_delete">Delete rule</string>
+    <string name="keep_offline_delete_note">Videos it downloaded stay until you remove them.</string>
+    <string name="keep_offline_button">Keep offline</string>
+    <string name="keep_offline_button_active">Keeping offline</string>
+    <plurals name="keep_offline_summary_latest">
+        <item quantity="one">Latest %d</item>
+        <item quantity="other">Latest %d</item>
+    </plurals>
+    <plurals name="keep_offline_summary_latest_unwatched">
+        <item quantity="one">Latest %d unwatched</item>
+        <item quantity="other">Latest %d unwatched</item>
+    </plurals>
+    <string name="keep_offline_summary_whole">Whole playlist</string>
+    <string name="keep_offline_summary_whole_unwatched">Whole playlist, unwatched</string>
+    <string name="keep_offline_summary_wifi">Wi-Fi only</string>
+    <string name="keep_offline_summary_any_network">any network</string>
+    <string name="keep_offline_summary_remove">remove when watched</string>
 </resources>
