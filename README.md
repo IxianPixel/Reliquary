@@ -11,6 +11,9 @@ Archivist server, v0.6.0 or later.
 > This app has been largely written with AI. I understand that not everyone is
 > OK with using apps made this way, which is why this disclaimer is here. I'd
 > rather be upfront and honest than pretend no AI was used.
+>
+> I review every change before it's committed, and each feature is tested on a
+> real phone against a real Tube Archivist server.
 
 ## Install
 
