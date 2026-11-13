@@ -31,7 +31,8 @@ internal const val VIDEO_WITH_PENDING = """
     download.bytesDownloaded AS download_bytesDownloaded,
     download.totalBytes AS download_totalBytes,
     download.createdAtMillis AS download_createdAtMillis,
-    download.ruleId AS download_ruleId
+    download.ruleId AS download_ruleId,
+    download.thumbnailPath AS download_thumbnailPath
 """
 
 /** Joins for [VIDEO_WITH_PENDING]; follows `FROM video` or a join onto video. */
@@ -243,6 +244,9 @@ interface DownloadDao {
 
     @Query("DELETE FROM download WHERE videoId = :videoId")
     suspend fun delete(videoId: String)
+
+    @Query("UPDATE download SET thumbnailPath = :path WHERE videoId = :videoId")
+    suspend fun setThumbnail(videoId: String, path: String)
 }
 
 @Dao

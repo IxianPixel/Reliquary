@@ -24,6 +24,9 @@ class DownloadFiles @Inject constructor(@ApplicationContext private val context:
 
     fun partial(videoId: String): File = File(dir, "${safe(videoId)}.mp4.part")
 
+    /** The thumbnail saved with the download. */
+    fun thumbnail(videoId: String): File = File(dir, "${safe(videoId)}.jpg")
+
     /** A subtitle saved with the download; [key] is the track's key, e.g. "en.user". */
     fun subtitle(videoId: String, key: String): File = File(dir, "${safe(videoId)}.${safe(key)}.vtt")
 
@@ -45,6 +48,7 @@ class DownloadFiles @Inject constructor(@ApplicationContext private val context:
     fun delete(videoId: String) {
         complete(videoId).delete()
         partial(videoId).delete()
+        thumbnail(videoId).delete()
         val subtitlePrefix = "${safe(videoId)}."
         dir.listFiles { file -> file.name.startsWith(subtitlePrefix) && file.name.endsWith(".vtt") }
             ?.forEach { it.delete() }

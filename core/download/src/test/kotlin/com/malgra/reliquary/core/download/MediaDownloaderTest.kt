@@ -145,4 +145,37 @@ class MediaDownloaderTest {
         files.delete("v")
         assertFalse(files.subtitle("v", "en.user").exists())
     }
+
+    @Test fun thumbnailIsSavedRecordedAndRemovedWithTheDownload() = runTest {
+        queued()
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte())
+        server.enqueue(MockResponse.Builder().code(200).body(Buffer().write(jpeg)).build())
+
+        downloader().downloadThumbnail("v", server.url("/media/thumb/video/v.jpg").toString())
+
+        assertContentEquals(jpeg, files.thumbnail("v").readBytes())
+        assertEquals(files.thumbnail("v").path, db.downloadDao().get("v")!!.thumbnailPath)
+
+        files.delete("v")
+        assertFalse(files.thumbnail("v").exists())
+    }
+
+    @Test fun aThumbnailThatFailsIsSkipped() = runTest {
+        queued()
+        server.enqueue(MockResponse(code = 404))
+
+        downloader().downloadThumbnail("v", server.url("/media/thumb/video/v.jpg").toString())
+
+        assertFalse(files.thumbnail("v").exists())
+        assertNull(db.downloadDao().get("v")!!.thumbnailPath)
+    }
+
+    @Test fun aLocalThumbnailIsNotFetchedAgain() = runTest {
+        queued()
+
+        downloader().downloadThumbnail("v", "file:///somewhere/v.jpg")
+
+        assertEquals(0, server.requestCount)
+        assertNull(db.downloadDao().get("v")!!.thumbnailPath)
+    }
 }

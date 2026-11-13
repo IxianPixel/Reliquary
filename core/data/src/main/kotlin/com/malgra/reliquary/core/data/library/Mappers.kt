@@ -106,7 +106,11 @@ internal fun parseServerDate(value: String?): Long? {
 
 internal fun VideoWithPending.toModel(): Video = video.toModel(pending).copy(
     download = download?.let { row -> DownloadStatus.entries.firstOrNull { it.name == row.state } },
-)
+).withLocalThumbnail(download?.thumbnailPath)
+
+/** Points the thumbnail at the copy saved with the download, when there is one, so it shows offline. */
+internal fun Video.withLocalThumbnail(path: String?): Video =
+    if (path == null) this else copy(thumbnailUrl = "file://$path")
 
 /** Local progress that hasn't synced wins over the server's, so the app shows where you are. */
 internal fun VideoEntity.toModel(pending: PendingProgressEntity? = null) = Video(

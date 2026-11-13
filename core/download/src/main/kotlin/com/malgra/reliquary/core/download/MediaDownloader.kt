@@ -58,18 +58,33 @@ class MediaDownloader @Inject constructor(
     suspend fun downloadSubtitles(videoId: String, subtitles: List<Subtitle>) = withContext(Dispatchers.IO) {
         for (subtitle in subtitles) {
             val target = files.subtitle(videoId, subtitle.key)
-            if (target.exists()) continue
-            try {
-                client.newCall(Request.Builder().url(subtitle.url).build()).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-                    val part = File(target.path + ".part")
-                    part.outputStream().use { out -> response.body.byteStream().copyTo(out) }
-                    if (!part.renameTo(target)) part.delete()
-                }
-            } catch (e: IOException) {
-                Log.w(TAG, "Subtitle ${subtitle.key} for $videoId not saved", e)
-            }
+            if (!target.exists()) saveSmallFile(subtitle.url, target, "Subtitle ${subtitle.key} for $videoId")
         }
+    }
+
+    /**
+     * Saves the video's thumbnail next to it and records it on the download, so
+     * the thumbnail shows offline. Best effort, like subtitles.
+     */
+    suspend fun downloadThumbnail(videoId: String, url: String?) = withContext(Dispatchers.IO) {
+        if (url == null || !url.startsWith("http")) return@withContext
+        val target = files.thumbnail(videoId)
+        if (target.exists() || saveSmallFile(url, target, "Thumbnail for $videoId")) {
+            downloads.setThumbnail(videoId, target.path)
+        }
+    }
+
+    /** Fetches [url] into [target] via a `.part` file; false (and logged) if it couldn't. */
+    private fun saveSmallFile(url: String, target: File, what: String): Boolean = try {
+        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            val part = File(target.path + ".part")
+            part.outputStream().use { out -> response.body.byteStream().copyTo(out) }
+            part.renameTo(target).also { saved -> if (!saved) part.delete() }
+        }
+    } catch (e: IOException) {
+        Log.w(TAG, "$what not saved", e)
+        false
     }
 
     private suspend fun transfer(

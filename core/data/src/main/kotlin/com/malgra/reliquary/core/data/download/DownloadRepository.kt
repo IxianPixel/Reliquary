@@ -1,6 +1,7 @@
 package com.malgra.reliquary.core.data.download
 
 import com.malgra.reliquary.core.data.library.toModel
+import com.malgra.reliquary.core.data.library.withLocalThumbnail
 import com.malgra.reliquary.core.data.settings.AppSettings
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.DownloadEntity
@@ -35,7 +36,7 @@ class DownloadRepository @Inject constructor(
     fun download(videoId: String): Flow<Download?> = downloads.observe(videoId).map { it?.toModel() }
 
     fun all(): Flow<List<DownloadedVideo>> = downloads.observeAll().map { rows ->
-        rows.map { DownloadedVideo(it.download.toModel(), it.video?.toModel()) }
+        rows.map { DownloadedVideo(it.download.toModel(), it.video?.toModel()?.withLocalThumbnail(it.download.thumbnailPath)) }
     }
 
     /** Queues the video for the user; it becomes theirs even if a rule downloaded it. */
@@ -67,6 +68,7 @@ class DownloadRepository @Inject constructor(
                 totalBytes = existing?.totalBytes ?: 0,
                 createdAtMillis = existing?.createdAtMillis ?: System.currentTimeMillis(),
                 ruleId = ruleId,
+                thumbnailPath = existing?.thumbnailPath,
             ),
         )
         scheduler.start(videoId, wifiOnly)

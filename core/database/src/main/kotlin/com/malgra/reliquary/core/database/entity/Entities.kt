@@ -124,6 +124,8 @@ data class DownloadEntity(
     val createdAtMillis: Long,
     /** The keep-offline rule that downloaded it, or null if the user did; only rule downloads are removed automatically. */
     val ruleId: String? = null,
+    /** The thumbnail saved with the download, so it shows offline; null until saved. */
+    val thumbnailPath: String? = null,
 )
 
 data class DownloadWithVideo(

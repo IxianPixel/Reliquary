@@ -11,7 +11,6 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.malgra.reliquary.core.data.di.NotificationIcon
-import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.model.DownloadStatus
 import dagger.assisted.Assisted
@@ -24,7 +23,7 @@ class DownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val db: ReliquaryDatabase,
     private val downloader: MediaDownloader,
-    private val videos: VideoRepository,
+    private val extras: DownloadExtras,
     private val icon: NotificationIcon,
 ) : CoroutineWorker(context, params) {
 
@@ -47,7 +46,7 @@ class DownloadWorker @AssistedInject constructor(
         }
         return when (outcome) {
             MediaDownloader.Outcome.Done -> {
-                videos.get(videoId)?.let { downloader.downloadSubtitles(videoId, it.subtitles) }
+                extras.save(videoId)
                 Result.success()
             }
             MediaDownloader.Outcome.Retry -> Result.retry()

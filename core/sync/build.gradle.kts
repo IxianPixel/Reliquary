@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:download"))
     api(libs.androidx.work.runtime)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)

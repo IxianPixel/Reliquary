@@ -1,6 +1,8 @@
 package com.malgra.reliquary.core.data.library
 
 import com.malgra.reliquary.core.database.ReliquaryDatabase
+import com.malgra.reliquary.core.database.entity.DownloadEntity
+import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.SearchResults
 import com.malgra.reliquary.core.model.VideoType
@@ -178,5 +180,19 @@ class LibraryRepositoriesTest {
         assertEquals(listOf("en.user", "de.auto"), tracks.map { it.key })
         assertEquals(server.url("/media/subtitle/a.en.vtt").toString(), tracks.first().url)
         assertEquals(listOf("English", "German"), tracks.map { it.name })
+    }
+
+    @Test fun aSavedThumbnailReplacesTheServersOnceDownloaded() = runTest {
+        server.enqueue(MockResponse(code = 200, body = videoJson("a")))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+        videos.refreshVideo("a")
+        val serverThumbnail = videos.get("a")!!.thumbnailUrl
+        assertTrue(serverThumbnail!!.startsWith("http"))
+
+        db.downloadDao().upsert(DownloadEntity("a", DownloadStatus.Completed.name, 1, 1, createdAtMillis = 0))
+        assertEquals(serverThumbnail, videos.get("a")!!.thumbnailUrl) // nothing saved yet
+
+        db.downloadDao().setThumbnail("a", "/files/a.jpg")
+        assertEquals("file:///files/a.jpg", videos.get("a")!!.thumbnailUrl)
     }
 }
