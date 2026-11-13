@@ -89,6 +89,9 @@ class OnboardingViewModel @Inject constructor(
         scheduleCheck(DEBOUNCE_MILLIS)
     }
 
+    /** Checks the server again now, e.g. once the app may reach the local network. */
+    fun recheckServer() = scheduleCheck(debounceMillis = 0)
+
     fun onMethodChange(method: SignInMethod) = _state.update { it.copy(method = method, error = null) }
 
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, error = null) }

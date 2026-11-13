@@ -4,7 +4,7 @@ agp = "9.5.1"
 kotlin = "2.4.21"
 ksp = "2.3.12" # not 2.3.13: concurrent KSP runs lose library types (google/ksp#3286, our #16); upgrade past it once fixed
 compileSdk = "37"
-targetSdk = "36" # 37 blocks LAN traffic without ACCESS_LOCAL_NETWORK; see plan
+targetSdk = "37"
 minSdk = "29"
 
 # AndroidX

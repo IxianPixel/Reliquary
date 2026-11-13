@@ -78,4 +78,8 @@
     <string name="keep_offline_summary_wifi">Wi-Fi only</string>
     <string name="keep_offline_summary_any_network">any network</string>
     <string name="keep_offline_summary_remove">remove when watched</string>
+    <string name="ui_local_network_title">Allow access to your local network</string>
+    <string name="ui_local_network_body">Your server is on your local network. Android needs your permission (Nearby devices) before Reliquary can reach it.</string>
+    <string name="ui_local_network_allow">Allow</string>
+    <string name="ui_local_network_settings">Open settings</string>
 </resources>

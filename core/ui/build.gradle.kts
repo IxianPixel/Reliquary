@@ -11,4 +11,6 @@ dependencies {
     implementation(project(":core:data"))
     api(libs.androidx.paging.compose)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.activity.compose) // permission requests
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }

@@ -49,12 +49,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.designsystem.theme.ReliquaryTheme
 import com.malgra.reliquary.core.network.Failure
+import com.malgra.reliquary.core.network.ServerUrl
+import com.malgra.reliquary.core.ui.LocalNetworkAccess
+import com.malgra.reliquary.core.ui.LocalNetworkAccessCard
+import com.malgra.reliquary.core.ui.rememberLocalNetworkAccess
 
 @Composable
 fun OnboardingRoute(viewModel: OnboardingViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val localNetwork = rememberLocalNetworkAccess(
+        serverUrl = ServerUrl.normalize(state.serverUrl)?.toString(),
+        onGranted = viewModel::recheckServer,
+    )
     OnboardingScreen(
         state = state,
+        localNetwork = localNetwork,
         onServerUrlChange = viewModel::onServerUrlChange,
         onMethodChange = viewModel::onMethodChange,
         onUsernameChange = viewModel::onUsernameChange,
@@ -74,6 +83,7 @@ fun OnboardingScreen(
     onTokenChange: (String) -> Unit,
     onConnect: () -> Unit,
     modifier: Modifier = Modifier,
+    localNetwork: LocalNetworkAccess? = null,
 ) {
     Column(
         modifier = modifier
@@ -87,6 +97,7 @@ fun OnboardingScreen(
         Header(expired = state.sessionExpired)
 
         ServerField(state, onServerUrlChange)
+        localNetwork?.let { LocalNetworkAccessCard(it) }
 
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(R.string.onboarding_sign_in_with), style = MaterialTheme.typography.titleSmall)
