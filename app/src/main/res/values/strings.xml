@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Reliquary</string>
+    <string name="local_network_title">Allow access to your local network?</string>
+    <string name="local_network_body">Your server is on your local network. Android needs your permission (Nearby devices) before Reliquary can reach it; without it, nothing will load from the server.</string>
+    <string name="local_network_allow">Allow</string>
+    <string name="local_network_settings">Open settings</string>
+    <string name="local_network_not_now">Not now</string>
 </resources>

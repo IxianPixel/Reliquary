@@ -1,0 +1,22 @@
+Reliquary is an Android app for <a href="https://www.tubearchivist.com">Tube Archivist</a>, the self-hosted YouTube archive. It needs your own Tube Archivist server, version 0.6.0 or later.
+
+<b>Watch offline</b>
+<ul>
+<li>Download single videos, or keep a channel or playlist downloaded automatically, with optional Wi-Fi-only downloads.</li>
+<li>Downloads resume after interruptions and include thumbnails and subtitles.</li>
+<li>Offline, the app shows what's on the device and keeps working.</li>
+</ul>
+
+<b>Progress that syncs</b>
+<ul>
+<li>Your place in each video is saved on the device and sent to your server when it can be reached, so you can carry on in the web player.</li>
+</ul>
+
+<b>Player</b>
+<ul>
+<li>Resumes where you left off and plays playlists as a queue.</li>
+<li>Minimises into a mini-player, plays in the background and in picture-in-picture.</li>
+<li>Subtitles, SponsorBlock skipping, and the comments and similar videos your server saved.</li>
+</ul>
+
+Reliquary only talks to your Tube Archivist server. It has no tracking or ads, and doesn't contact YouTube.

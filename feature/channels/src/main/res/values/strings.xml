@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels_title">Channels</string>
+    <string name="channels_empty">No channels yet. Subscribe to a channel in Tube Archivist and it appears here.</string>
+    <string name="channel_back">Back</string>
+    <string name="channel_tab_videos">Videos</string>
+    <string name="channel_tab_streams">Streams</string>
+    <string name="channel_tab_shorts">Shorts</string>
+    <string name="channel_tab_playlists">Playlists</string>
+    <string name="channel_filter">Filter videos</string>
+    <string name="channel_filter_all">All</string>
+    <string name="channel_filter_unwatched">Unwatched</string>
+    <string name="channel_filter_on_device">On device</string>
+    <string name="channel_empty_on_device">Nothing from here is downloaded. Use a video’s ⋮ menu to download it.</string>
+    <string name="channel_empty_videos">Nothing here in the archive.</string>
+    <string name="channel_empty_unwatched">You’ve watched everything here.</string>
+    <string name="channel_empty_playlists">No playlists from this channel.</string>
+</resources>

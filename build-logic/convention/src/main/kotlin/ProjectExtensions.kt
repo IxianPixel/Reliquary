@@ -14,6 +14,6 @@ internal fun VersionCatalog.versionInt(alias: String): Int =
 internal fun VersionCatalog.lib(alias: String): Provider<MinimalExternalModuleDependency> =
     findLibrary(alias).get()
 
-/** `:feature:home` -> `app.reliquary.feature.home` */
+/** `:feature:home` -> `com.malgra.reliquary.feature.home` */
 internal val Project.defaultNamespace: String
-    get() = "app.reliquary" + path.replace(':', '.')
+    get() = "com.malgra.reliquary" + path.replace(':', '.')

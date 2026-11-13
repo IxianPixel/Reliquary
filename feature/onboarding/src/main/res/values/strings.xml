@@ -1,0 +1,33 @@
+<resources>
+    <string name="onboarding_title">Reliquary</string>
+    <string name="onboarding_intro">Connect to your Tube Archivist server to browse, download and keep your place in every video.</string>
+    <string name="onboarding_expired">Your session on this server ended. Sign in again; progress you watched offline is kept and will sync.</string>
+    <string name="onboarding_server_label">Server address</string>
+    <string name="onboarding_server_placeholder">https://archive.example.com</string>
+    <string name="onboarding_server_checking">Checking…</string>
+    <string name="onboarding_server_found">Tube Archivist server found</string>
+    <string name="onboarding_server_invalid">That doesn\'t look like a web address</string>
+    <string name="onboarding_server_not_ta">A server answered, but it isn\'t Tube Archivist</string>
+    <string name="onboarding_sign_in_with">Sign in with</string>
+    <string name="onboarding_method_password">Password</string>
+    <string name="onboarding_method_token">API token</string>
+    <string name="onboarding_username">Username</string>
+    <string name="onboarding_password">Password</string>
+    <string name="onboarding_password_help">Works for every account on the server. You stay signed in for a year.</string>
+    <string name="onboarding_token">API token</string>
+    <string name="onboarding_token_help">Admins can copy the token from Settings › Application in the Tube Archivist web app. Use this if your server sits behind single sign-on.</string>
+    <string name="onboarding_connect">Connect</string>
+    <string name="onboarding_footer">Home servers on plain HTTP or a local address are fine.</string>
+
+    <string name="onboarding_error_credentials">Wrong username or password</string>
+    <string name="onboarding_error_token">The server didn\'t accept that token</string>
+    <string name="onboarding_error_version">This server runs Tube Archivist %1$s. Reliquary needs v0.6.0 or newer.</string>
+    <string name="onboarding_error_no_cookie">Signed in, but the server sent no session. A proxy in front of it may be removing cookies; try an API token.</string>
+    <string name="onboarding_error_unknown_host">Can\'t find that server. Check the address.</string>
+    <string name="onboarding_error_refused">The server refused the connection. Check the address and port.</string>
+    <string name="onboarding_error_timeout">The server took too long to answer.</string>
+    <string name="onboarding_error_tls">Secure connection failed: %1$s</string>
+    <string name="onboarding_error_http">The server answered with an error (HTTP %1$d).</string>
+    <string name="onboarding_error_unexpected">The server sent a response Reliquary didn\'t understand.</string>
+    <string name="onboarding_error_other">Couldn\'t reach the server: %1$s</string>
+</resources>

@@ -1,0 +1,6 @@
+Added:
+• Initial release
+• Offline downloads
+• Watch progress that syncs
+• Player
+Full notes: https://github.com/IxianPixel/Reliquary/releases/tag/v0.1.0

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_empty">Nothing downloaded yet. Open a video and tap Download to watch it without a connection.</string>
+    <plurals name="downloads_pending_sync">
+        <item quantity="one">%d progress update waiting to sync</item>
+        <item quantity="other">%d progress updates waiting to sync</item>
+    </plurals>
+    <string name="downloads_keep_offline">Keep offline</string>
+    <string name="downloads_rules_empty">To keep a channel or playlist downloaded automatically, open it and tap Keep offline.</string>
+    <string name="downloads_sync_now">Sync now</string>
+    <string name="downloads_downloaded">Downloaded</string>
+    <string name="downloads_storage">%1$s used by downloads · %2$s free</string>
+    <string name="downloads_on_device">On this device · %s</string>
+    <string name="downloads_waiting">Waiting for a connection</string>
+    <string name="downloads_waiting_wifi">Waiting for Wi-Fi</string>
+    <string name="downloads_failed">Download failed. Open the video to try again.</string>
+    <string name="downloads_percent">%d%%</string>
+    <string name="downloads_of">%1$s of %2$s</string>
+    <string name="downloads_speed">%s/s</string>
+    <string name="downloads_left">%s left</string>
+    <string name="downloads_under_a_minute">under a minute</string>
+    <plurals name="downloads_about_minutes">
+        <item quantity="one">about %d min</item>
+        <item quantity="other">about %d min</item>
+    </plurals>
+    <string name="downloads_about_hours">about %1$d h %2$d min</string>
+    <string name="downloads_missing_video">Video details aren’t cached</string>
+    <string name="downloads_remove">Remove download</string>
+    <string name="downloads_cancel">Cancel download</string>
+    <string name="downloads_remove_title">Remove download?</string>
+    <string name="downloads_remove_body">“%s” stays on your server. You’ll need a connection to watch it again.</string>
+    <string name="downloads_remove_confirm">Remove</string>
+    <string name="downloads_keep">Keep</string>
+</resources>

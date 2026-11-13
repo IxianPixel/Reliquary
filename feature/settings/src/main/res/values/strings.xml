@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_downloads">Downloads</string>
+    <string name="settings_wifi_only">Download over Wi-Fi only</string>
+    <string name="settings_wifi_only_body">Downloads wait for Wi-Fi instead of using mobile data.</string>
+    <string name="settings_section_playback">Playback</string>
+    <string name="settings_skip_sponsors">Skip sponsored segments</string>
+    <string name="settings_skip_sponsors_body">Uses SponsorBlock to skip sponsors, intros and similar parts of a video, when Tube Archivist has them.</string>
+    <string name="settings_section_account">Account</string>
+    <string name="settings_server_version">Tube Archivist %s</string>
+    <string name="settings_unknown_user">Unknown user</string>
+    <string name="settings_signed_in_token">Signed in with an API token</string>
+    <string name="settings_signed_in_password">Signed in with a password</string>
+    <string name="settings_sign_out">Sign out</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_back">Back</string>
+    <string name="search_hint">Search your archive</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_tips">Search titles, channels and playlists. Start with channel:, playlist: or full: to search just one kind, or subtitles.</string>
+    <string name="search_offline">You’re offline. These results come from what’s saved on this device.</string>
+    <string name="search_no_results">Nothing matches “%s”.</string>
+    <string name="search_videos">Videos</string>
+    <string name="search_channels">Channels</string>
+    <string name="search_playlists">Playlists</string>
+</resources>

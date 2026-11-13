@@ -1,0 +1,112 @@
+name: Release
+
+# Runs when a version tag (v1.2.3) is pushed. The tag must be on master, match
+# versionName in app/build.gradle.kts, and have a section in CHANGELOG.md
+# (scripts/prepare-release.py does both on the release/* branch).
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create the release
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # to check the tag is on master
+
+      - name: Check the tag, version and changelog
+        id: check
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag $TAG isn't vMAJOR.MINOR.PATCH."; exit 1
+          fi
+          git fetch --no-tags origin master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $TAG isn't on master. Merge the release/* branch first, then tag master."; exit 1
+          fi
+          version_name="$(sed -nE 's/^ *versionName = "([^"]+)".*/\1/p' app/build.gradle.kts)"
+          if [ "v$version_name" != "$TAG" ]; then
+            echo "::error::versionName is $version_name but the tag is $TAG. Run scripts/prepare-release.py on the release branch."; exit 1
+          fi
+          scripts/changelog-section.sh "$TAG" > "$RUNNER_TEMP/notes.md"
+          echo "Release notes:"; cat "$RUNNER_TEMP/notes.md"
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          missing=()
+          [ -n "$KEYSTORE_BASE64" ] || missing+=(RELEASE_KEYSTORE_BASE64)
+          [ -n "$STORE_PASSWORD" ] || missing+=(RELEASE_STORE_PASSWORD)
+          [ -n "$KEY_ALIAS" ] || missing+=(RELEASE_KEY_ALIAS)
+          [ -n "$KEY_PASSWORD" ] || missing+=(RELEASE_KEY_PASSWORD)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"; exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Build release APK
+        env:
+          RELIQUARY_KEYSTORE: ${{ runner.temp }}/release.jks
+          RELIQUARY_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELIQUARY_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELIQUARY_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew testDebugUnitTest assembleRelease --console=plain
+
+      - name: Name and check the APK
+        id: apk
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          src=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$src" ]; then
+            echo "::error::No signed APK at $src."; ls app/build/outputs/apk/release; exit 1
+          fi
+          apk="reliquary-$TAG.apk"
+          cp "$src" "$apk"
+          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$build_tools/apksigner" verify --print-certs "$apk" | grep -m1 "SHA-256 digest"
+          sha256sum "$apk" > "$apk.sha256"
+          echo "file=$apk" >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "Reliquary $TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "${{ steps.apk.outputs.file }}" "${{ steps.apk.outputs.file }}.sha256"
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"

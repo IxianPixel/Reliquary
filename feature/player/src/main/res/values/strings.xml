@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_minimise">Minimise player</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_back_10">Back 10 seconds</string>
+    <string name="player_forward_10">Forward 10 seconds</string>
+    <string name="player_seek">Seek</string>
+    <string name="player_full_screen">Full screen</string>
+    <string name="player_exit_full_screen">Exit full screen</string>
+    <string name="player_time">%1$s / %2$s</string>
+    <string name="player_published">Published %s</string>
+    <string name="player_mark_watched">Mark watched</string>
+    <string name="player_watched">Watched</string>
+    <string name="player_more">More</string>
+    <string name="player_less">Less</string>
+    <string name="player_synced_note">Your place is saved on this device and synced to the server automatically.</string>
+    <string name="player_pending_note">Your place is saved on this device. It syncs when the server can be reached.</string>
+    <string name="player_error">Can’t play this video</string>
+    <string name="player_not_found">This video isn’t on this device yet. Connect to your server to load it.</string>
+    <string name="player_download">Download</string>
+    <string name="player_download_retry">Retry download</string>
+    <string name="player_download_waiting">Waiting to download</string>
+    <string name="player_downloading">Downloading %d%%</string>
+    <string name="player_downloading_unknown">Downloading</string>
+    <string name="player_downloaded">Downloaded</string>
+    <string name="player_remove_download_title">Remove download?</string>
+    <string name="player_remove_download_body">The video stays on your server. You’ll need a connection to watch it again.</string>
+    <string name="player_remove">Remove</string>
+    <string name="player_keep">Keep</string>
+    <string name="player_next_in">Next in “%s”</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_subtitles_off">Off</string>
+    <string name="player_subtitle_auto">%s (auto-generated)</string>
+    <string name="mini_player_open">Open player: %s</string>
+    <string name="mini_player_close">Stop playback</string>
+    <string name="player_skipped_sponsor">Skipped a sponsor segment</string>
+    <string name="player_skipped_segment">Skipped a SponsorBlock segment</string>
+    <string name="player_skip_undo">Undo</string>
+    <string name="player_comments">Comments</string>
+    <string name="player_hide_replies">Hide replies</string>
+    <string name="player_comment_hearted">Hearted by the channel</string>
+    <string name="player_similar">Similar videos</string>
+    <plurals name="player_replies">
+        <item quantity="one">%d reply</item>
+        <item quantity="other">%d replies</item>
+    </plurals>
+    <plurals name="player_comment_likes">
+        <item quantity="one">%s like</item>
+        <item quantity="other">%s likes</item>
+    </plurals>
+</resources>

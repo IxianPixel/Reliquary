@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="ui_minutes_left">
+        <item quantity="one">%d min left</item>
+        <item quantity="other">%d min left</item>
+    </plurals>
+    <string name="ui_added_today">Added today</string>
+    <string name="ui_added_yesterday">Added yesterday</string>
+    <plurals name="ui_added_days_ago">
+        <item quantity="one">Added %d day ago</item>
+        <item quantity="other">Added %d days ago</item>
+    </plurals>
+    <string name="ui_added_on">Added %s</string>
+    <string name="ui_watched">Watched</string>
+    <string name="ui_subscribed">Subscribed</string>
+    <string name="ui_subscribers">%s subscribers</string>
+    <plurals name="ui_video_count">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
+    <string name="ui_meta_separator">" · "</string>
+
+    <string name="ui_error_offline">Can’t reach your server</string>
+    <string name="ui_error_offline_body">Check your connection. Anything already loaded is still here.</string>
+    <string name="ui_error_server">The server had a problem</string>
+    <string name="ui_error_server_body">Tube Archivist returned an error. Try again in a moment.</string>
+    <string name="ui_error_unexpected">Something went wrong</string>
+    <string name="ui_error_unexpected_body">Try again. If it keeps happening, sign out and back in.</string>
+    <string name="ui_retry">Try again</string>
+    <string name="ui_refresh_failed">Couldn’t refresh. Showing what’s saved.</string>
+    <string name="ui_load_more_failed">Couldn’t load more</string>
+    <string name="ui_loading">Loading</string>
+
+    <string name="ui_video_options">More options</string>
+    <string name="ui_menu_download">Download</string>
+    <string name="ui_menu_cancel_download">Cancel download</string>
+    <string name="ui_menu_remove_download">Remove download</string>
+    <string name="ui_menu_mark_watched">Mark watched</string>
+    <string name="ui_menu_mark_unwatched">Mark unwatched</string>
+    <string name="ui_downloaded">Downloaded</string>
+    <string name="ui_not_synced">Not synced</string>
+
+    <string name="keep_offline_title">Keep offline</string>
+    <string name="keep_offline_intro">%s. New videos download automatically and old ones make room.</string>
+    <string name="keep_offline_whole_playlist">Whole playlist</string>
+    <string name="keep_offline_whole_playlist_body">Keep every video in the playlist</string>
+    <string name="keep_offline_count">Videos to keep</string>
+    <string name="keep_offline_count_body">Newest first</string>
+    <string name="keep_offline_fewer">Fewer videos</string>
+    <string name="keep_offline_more">More videos</string>
+    <string name="keep_offline_unwatched">Unwatched only</string>
+    <string name="keep_offline_unwatched_body">Skip videos you’ve already seen</string>
+    <string name="keep_offline_wifi">Wi-Fi only</string>
+    <string name="keep_offline_wifi_body">Wait for an unmetered network</string>
+    <string name="keep_offline_remove">Remove when watched</string>
+    <string name="keep_offline_remove_body">Free space once you finish a video</string>
+    <plurals name="keep_offline_estimate">
+        <item quantity="one">About %1$s for %2$d video, based on file sizes on the server</item>
+        <item quantity="other">About %1$s for %2$d videos, based on file sizes on the server</item>
+    </plurals>
+    <string name="keep_offline_estimate_unknown">Size depends on the videos; open the list once to estimate it</string>
+    <string name="keep_offline_save">Save rule</string>
+    <string name="keep_offline_cancel">Cancel</string>
+    <string name="keep_offline_delete">Delete rule</string>
+    <string name="keep_offline_delete_note">Videos it downloaded stay until you remove them.</string>
+    <string name="keep_offline_button">Keep offline</string>
+    <string name="keep_offline_button_active">Keeping offline</string>
+    <plurals name="keep_offline_summary_latest">
+        <item quantity="one">Latest %d</item>
+        <item quantity="other">Latest %d</item>
+    </plurals>
+    <plurals name="keep_offline_summary_latest_unwatched">
+        <item quantity="one">Latest %d unwatched</item>
+        <item quantity="other">Latest %d unwatched</item>
+    </plurals>
+    <string name="keep_offline_summary_whole">Whole playlist</string>
+    <string name="keep_offline_summary_whole_unwatched">Whole playlist, unwatched</string>
+    <string name="keep_offline_summary_wifi">Wi-Fi only</string>
+    <string name="keep_offline_summary_any_network">any network</string>
+    <string name="keep_offline_summary_remove">remove when watched</string>
+    <string name="ui_local_network_title">Allow access to your local network</string>
+    <string name="ui_local_network_body">Your server is on your local network. Android needs your permission (Nearby devices) before Reliquary can reach it.</string>
+    <string name="ui_local_network_allow">Allow</string>
+    <string name="ui_local_network_settings">Open settings</string>
+</resources>
