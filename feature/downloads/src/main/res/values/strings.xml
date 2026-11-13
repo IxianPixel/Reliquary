@@ -16,6 +16,15 @@
     <string name="downloads_waiting_wifi">Waiting for Wi-Fi</string>
     <string name="downloads_failed">Download failed. Open the video to try again.</string>
     <string name="downloads_percent">%d%%</string>
+    <string name="downloads_of">%1$s of %2$s</string>
+    <string name="downloads_speed">%s/s</string>
+    <string name="downloads_left">%s left</string>
+    <string name="downloads_under_a_minute">under a minute</string>
+    <plurals name="downloads_about_minutes">
+        <item quantity="one">about %d min</item>
+        <item quantity="other">about %d min</item>
+    </plurals>
+    <string name="downloads_about_hours">about %1$d h %2$d min</string>
     <string name="downloads_missing_video">Video details aren’t cached</string>
     <string name="downloads_remove">Remove download</string>
     <string name="downloads_cancel">Cancel download</string>

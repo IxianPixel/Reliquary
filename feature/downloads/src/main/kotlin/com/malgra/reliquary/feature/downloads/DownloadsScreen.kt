@@ -44,7 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.malgra.reliquary.core.data.download.Storage
+import com.malgra.reliquary.core.data.download.timeLeft
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
+import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.DownloadedVideo
 import com.malgra.reliquary.core.model.KeepOfflineRule
@@ -55,7 +57,10 @@ import com.malgra.reliquary.core.ui.SectionHeader
 import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoThumbnail
 import com.malgra.reliquary.core.ui.keepOfflineSummary
+import com.malgra.reliquary.core.ui.metaLine
+import kotlin.math.ceil
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 @Composable
 fun DownloadsScreen(
@@ -64,6 +69,7 @@ fun DownloadsScreen(
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
+    val speeds by viewModel.speeds.collectAsStateWithLifecycle()
     val pendingSync by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
     val wifiOnly by viewModel.wifiOnly.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
@@ -132,6 +138,7 @@ fun DownloadsScreen(
                     DownloadRow(
                         item = item,
                         wifiOnly = wifiOnly,
+                        bytesPerSecond = speeds[item.download.videoId],
                         onOpen = { onOpenVideo(item.download.videoId) },
                         onRemove = {
                             if (item.download.status == DownloadStatus.Completed) removing = item else viewModel.remove(item.download.videoId)
@@ -247,7 +254,13 @@ private fun StorageMeter(storage: Storage) {
 }
 
 @Composable
-private fun DownloadRow(item: DownloadedVideo, wifiOnly: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun DownloadRow(
+    item: DownloadedVideo,
+    wifiOnly: Boolean,
+    bytesPerSecond: Long?,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
     val download = item.download
     val context = LocalContext.current
     Row(
@@ -274,21 +287,24 @@ private fun DownloadRow(item: DownloadedVideo, wifiOnly: Boolean, onOpen: () -> 
                 overflow = TextOverflow.Ellipsis,
             )
             when (download.status) {
-                DownloadStatus.Downloading -> Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val fraction = download.fraction
-                    if (fraction != null) {
-                        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
-                        Text(
-                            stringResource(R.string.downloads_percent, (fraction * 100).toInt()),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.weight(1f))
+                DownloadStatus.Downloading -> {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val fraction = download.fraction
+                        if (fraction != null) {
+                            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
+                            Text(
+                                stringResource(R.string.downloads_percent, (fraction * 100).toInt()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.weight(1f))
+                        }
                     }
+                    DownloadStats(download, bytesPerSecond)
                 }
                 else -> Text(
                     when (download.status) {
@@ -314,3 +330,37 @@ private fun DownloadRow(item: DownloadedVideo, wifiOnly: Boolean, onOpen: () -> 
         }
     }
 }
+
+/**
+ * "12 MB of 770 MB · 4.1 MB/s" over "758 MB left · about 3 min": sizes as soon
+ * as they're known, speed and time once there's a second or so to measure.
+ */
+@Composable
+private fun DownloadStats(download: Download, bytesPerSecond: Long?) {
+    val context = LocalContext.current
+    fun size(bytes: Long) = Formatter.formatShortFileSize(context, bytes)
+    val total = download.totalBytes.takeIf { it > 0 }
+    val speed = bytesPerSecond?.let { stringResource(R.string.downloads_speed, size(it)) }
+    val transferred = total?.let { stringResource(R.string.downloads_of, size(download.bytesDownloaded), size(it)) }
+        ?: size(download.bytesDownloaded)
+    val remaining = total?.let { (it - download.bytesDownloaded).coerceAtLeast(0) }
+    val time = remaining?.let { timeLeft(it, bytesPerSecond) }?.let { timeLeftText(it) }
+    val style = MaterialTheme.typography.bodySmall
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(metaLine(transferred, speed), style = style, color = color)
+    if (remaining != null) {
+        Text(metaLine(stringResource(R.string.downloads_left, size(remaining)), time), style = style, color = color)
+    }
+}
+
+/** "about 3 min", "about 1 h 20 min", or "under a minute". */
+@Composable
+private fun timeLeftText(time: Duration): String {
+    val minutes = ceil(time.inWholeSeconds / 60.0).toInt()
+    return when {
+        time < 1.minutes -> stringResource(R.string.downloads_under_a_minute)
+        minutes < 60 -> pluralStringResource(R.plurals.downloads_about_minutes, minutes, minutes)
+        else -> stringResource(R.string.downloads_about_hours, minutes / 60, minutes % 60)
+    }
+}
+

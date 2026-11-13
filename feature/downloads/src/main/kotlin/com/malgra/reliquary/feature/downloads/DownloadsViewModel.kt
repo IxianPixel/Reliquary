@@ -4,20 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.download.Storage
+import com.malgra.reliquary.core.data.download.TransferRate
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import com.malgra.reliquary.core.data.rules.KeepOfflineRepository
 import com.malgra.reliquary.core.data.rules.LibrarySyncScheduler
-import com.malgra.reliquary.core.model.KeepOfflineRule
-import kotlinx.coroutines.flow.first
 import com.malgra.reliquary.core.data.settings.AppSettings
+import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.DownloadedVideo
+import com.malgra.reliquary.core.model.KeepOfflineRule
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
@@ -58,6 +61,21 @@ class DownloadsViewModel @Inject constructor(
     /** Null until the first read, so the empty message doesn't flash. */
     val items: StateFlow<List<DownloadedVideo>?> = downloads.all()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val meters = mutableMapOf<String, TransferRate>()
+
+    /** Bytes per second for each download in progress, once there's enough to measure. */
+    val speeds: StateFlow<Map<String, Long>> = items
+        .map { list ->
+            val now = System.nanoTime() / 1_000_000
+            val active = list.orEmpty().filter { it.download.status == DownloadStatus.Downloading }
+            meters.keys.retainAll(active.mapTo(HashSet()) { it.download.videoId })
+            active.mapNotNull { item ->
+                val id = item.download.videoId
+                meters.getOrPut(id) { TransferRate() }.add(now, item.download.bytesDownloaded)?.let { id to it }
+            }.toMap()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val storage: StateFlow<Storage?> = downloads.storage()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
