@@ -1,17 +1,10 @@
 package com.malgra.reliquary.feature.downloads
 
-import com.malgra.reliquary.core.ui.keepOfflineSummary
-import com.malgra.reliquary.core.ui.SectionHeader
-import com.malgra.reliquary.core.ui.KeepOfflineSheet
-import com.malgra.reliquary.core.ui.ChannelAvatar
-import com.malgra.reliquary.core.model.KeepOfflineRule
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
 import android.text.format.Formatter
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -34,10 +27,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -52,8 +47,14 @@ import com.malgra.reliquary.core.data.download.Storage
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.DownloadedVideo
+import com.malgra.reliquary.core.model.KeepOfflineRule
+import com.malgra.reliquary.core.ui.ChannelAvatar
 import com.malgra.reliquary.core.ui.EmptyPanel
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
+import com.malgra.reliquary.core.ui.SectionHeader
+import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoThumbnail
+import com.malgra.reliquary.core.ui.keepOfflineSummary
 import kotlin.time.Duration
 
 @Composable
@@ -70,73 +71,76 @@ fun DownloadsScreen(
     var editing by remember { mutableStateOf<KeepOfflineRule?>(null) }
     var removing by remember { mutableStateOf<DownloadedVideo?>(null) }
 
-    LazyColumn(contentPadding = WindowInsets.statusBars.asPaddingValues(), modifier = modifier.fillMaxSize()) {
-        item(key = "title") {
-            Text(
-                stringResource(R.string.downloads_title),
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier
-                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
-                    .semantics { heading() },
-            )
-        }
-        storage?.takeIf { (items?.isNotEmpty() == true) }?.let { space ->
-            item(key = "storage") { StorageMeter(space) }
-        }
-        if (pendingSync > 0) {
-            item(key = "sync") {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Icon(
-                        painterResource(ReliquaryIcons.Sync),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp),
-                    )
+    Box(modifier.fillMaxSize()) {
+        LazyColumn(contentPadding = WindowInsets.statusBars.asPaddingValues(), modifier = Modifier.fillMaxSize()) {
+            item(key = "title") {
+                Text(
+                    stringResource(R.string.downloads_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+                        .semantics { heading() },
+                )
+            }
+            storage?.takeIf { (items?.isNotEmpty() == true) }?.let { space ->
+                item(key = "storage") { StorageMeter(space) }
+            }
+            if (pendingSync > 0) {
+                item(key = "sync") {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Icon(
+                            painterResource(ReliquaryIcons.Sync),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            pluralStringResource(R.plurals.downloads_pending_sync, pendingSync, pendingSync),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = viewModel::syncNow) { Text(stringResource(R.string.downloads_sync_now)) }
+                    }
+                }
+            }
+            item(key = "rules-header") { SectionHeader(stringResource(R.string.downloads_keep_offline)) }
+            if (rules.isEmpty()) {
+                item(key = "rules-empty") {
                     Text(
-                        pluralStringResource(R.plurals.downloads_pending_sync, pendingSync, pendingSync),
+                        stringResource(R.string.downloads_rules_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
-                    TextButton(onClick = viewModel::syncNow) { Text(stringResource(R.string.downloads_sync_now)) }
+                }
+            }
+            items(rules, key = { "rule-${it.id}" }) { rule -> RuleRow(rule, onClick = { editing = rule }) }
+
+            val list = items
+            if (!list.isNullOrEmpty()) {
+                item(key = "downloads-header") { SectionHeader(stringResource(R.string.downloads_downloaded)) }
+            }
+            when {
+                list == null -> Unit
+                list.isEmpty() -> item(key = "empty") { EmptyPanel(stringResource(R.string.downloads_empty)) }
+                else -> items(list, key = { it.download.videoId }) { item ->
+                    DownloadRow(
+                        item = item,
+                        wifiOnly = wifiOnly,
+                        onOpen = { onOpenVideo(item.download.videoId) },
+                        onRemove = {
+                            if (item.download.status == DownloadStatus.Completed) removing = item else viewModel.remove(item.download.videoId)
+                        },
+                    )
                 }
             }
         }
-        item(key = "rules-header") { SectionHeader(stringResource(R.string.downloads_keep_offline)) }
-        if (rules.isEmpty()) {
-            item(key = "rules-empty") {
-                Text(
-                    stringResource(R.string.downloads_rules_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-        }
-        items(rules, key = { "rule-${it.id}" }) { rule -> RuleRow(rule, onClick = { editing = rule }) }
-
-        val list = items
-        if (!list.isNullOrEmpty()) {
-            item(key = "downloads-header") { SectionHeader(stringResource(R.string.downloads_downloaded)) }
-        }
-        when {
-            list == null -> Unit
-            list.isEmpty() -> item(key = "empty") { EmptyPanel(stringResource(R.string.downloads_empty)) }
-            else -> items(list, key = { it.download.videoId }) { item ->
-                DownloadRow(
-                    item = item,
-                    wifiOnly = wifiOnly,
-                    onOpen = { onOpenVideo(item.download.videoId) },
-                    onRemove = {
-                        if (item.download.status == DownloadStatus.Completed) removing = item else viewModel.remove(item.download.videoId)
-                    },
-                )
-            }
-        }
+        StatusBarScrim(Modifier.align(Alignment.TopCenter))
     }
 
     editing?.let { rule ->

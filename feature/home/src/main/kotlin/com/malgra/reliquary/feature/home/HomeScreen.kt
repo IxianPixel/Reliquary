@@ -2,9 +2,9 @@ package com.malgra.reliquary.feature.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,8 +34,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -44,6 +44,7 @@ import androidx.paging.compose.itemKey
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.ui.EmptyPanel
 import com.malgra.reliquary.core.ui.SectionHeader
+import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoCard
 import com.malgra.reliquary.core.ui.VideoGridItem
 import com.malgra.reliquary.core.ui.VideoListItem
@@ -155,6 +156,7 @@ fun HomeScreen(
             }
             pagingFooter(recent)
         }
+        StatusBarScrim(Modifier.align(Alignment.TopCenter))
     }
 }
 

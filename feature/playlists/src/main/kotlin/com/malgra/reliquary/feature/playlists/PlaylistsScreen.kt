@@ -1,12 +1,5 @@
 package com.malgra.reliquary.feature.playlists
 
-import com.malgra.reliquary.core.ui.KeepOfflineSheet
-import com.malgra.reliquary.core.ui.KeepOfflineButton
-import com.malgra.reliquary.core.model.KeepOfflineRule
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -44,9 +42,13 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
+import com.malgra.reliquary.core.model.KeepOfflineRule
 import com.malgra.reliquary.core.ui.EmptyPanel
+import com.malgra.reliquary.core.ui.KeepOfflineButton
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
 import com.malgra.reliquary.core.ui.NumberedVideoItem
 import com.malgra.reliquary.core.ui.PlaylistListItem
+import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.isRefreshing
 import com.malgra.reliquary.core.ui.metaLine
 import com.malgra.reliquary.core.ui.pagingFooter
@@ -87,6 +89,7 @@ fun PlaylistsScreen(
             }
             pagingFooter(playlists)
         }
+        StatusBarScrim(Modifier.align(Alignment.TopCenter))
     }
 }
 

@@ -1,12 +1,5 @@
 package com.malgra.reliquary.feature.channels
 
-import com.malgra.reliquary.core.ui.KeepOfflineButton
-import com.malgra.reliquary.core.ui.KeepOfflineSheet
-import com.malgra.reliquary.core.model.KeepOfflineRule
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +17,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,10 +33,17 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -59,14 +60,18 @@ import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.model.Channel
+import com.malgra.reliquary.core.model.KeepOfflineRule
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.WatchFilter
 import com.malgra.reliquary.core.ui.ChannelAvatar
 import com.malgra.reliquary.core.ui.EmptyPanel
+import com.malgra.reliquary.core.ui.KeepOfflineButton
+import com.malgra.reliquary.core.ui.KeepOfflineSheet
 import com.malgra.reliquary.core.ui.PlaylistListItem
 import com.malgra.reliquary.core.ui.R as UiR
 import com.malgra.reliquary.core.ui.ServerImage
+import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoListItem
 import com.malgra.reliquary.core.ui.compactCount
 import com.malgra.reliquary.core.ui.isRefreshing
@@ -102,6 +107,15 @@ fun ChannelScreen(
     }
     val showingPlaylists = selection.tab == ChannelTab.Playlists
 
+    // The banner sits under the status bar; once it has scrolled up past it, cover the status bar.
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val statusBarPx = WindowInsets.statusBars.getTop(density)
+    val bannerPx = with(density) { BannerHeight.roundToPx() } + statusBarPx
+    val bannerScrolledAway by remember(bannerPx, statusBarPx) {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > bannerPx - statusBarPx }
+    }
+
     PullToRefreshBox(
         isRefreshing = if (showingPlaylists) playlists.isRefreshing else videos.isRefreshing,
         onRefresh = {
@@ -110,7 +124,7 @@ fun ChannelScreen(
         },
         modifier = modifier.fillMaxSize(),
     ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item(key = "header", contentType = "header") {
                 ChannelHeader(channel, videoCount, onBack, keepingOffline = rule != null, onKeepOffline = { editingRule = true })
             }
@@ -128,6 +142,7 @@ fun ChannelScreen(
                 videoItems(videos, selection.filter, onOpenVideo)
             }
         }
+        StatusBarScrim(Modifier.align(Alignment.TopCenter), visible = bannerScrolledAway)
     }
 
     val current = channel
@@ -192,6 +207,9 @@ private fun LazyListScope.playlistItems(playlists: LazyPagingItems<Playlist>, on
 }
 
 /** Banner across the top (behind the status bar), with the avatar overlapping its lower edge. */
+/** The banner's height below the status bar (it also fills the space behind the status bar). */
+private val BannerHeight = 132.dp
+
 @Composable
 private fun ChannelHeader(
     channel: Channel?,
@@ -201,7 +219,7 @@ private fun ChannelHeader(
     onKeepOffline: () -> Unit,
 ) {
     val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val bannerHeight = 132.dp + statusBar
+    val bannerHeight = BannerHeight + statusBar
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier

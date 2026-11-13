@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -22,6 +23,7 @@ import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.malgra.reliquary.core.ui.ChannelListItem
 import com.malgra.reliquary.core.ui.EmptyPanel
+import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.isRefreshing
 import com.malgra.reliquary.core.ui.pagingFooter
 import com.malgra.reliquary.core.ui.pagingHeader
@@ -60,5 +62,6 @@ fun ChannelsScreen(
             }
             pagingFooter(channels)
         }
+        StatusBarScrim(Modifier.align(Alignment.TopCenter))
     }
 }
