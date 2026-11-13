@@ -29,6 +29,9 @@
     <string name="player_remove">Remove</string>
     <string name="player_keep">Keep</string>
     <string name="player_next_in">Next in “%s”</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_subtitles_off">Off</string>
+    <string name="player_subtitle_auto">%s (auto-generated)</string>
     <string name="mini_player_open">Open player: %s</string>
     <string name="mini_player_close">Stop playback</string>
 </resources>

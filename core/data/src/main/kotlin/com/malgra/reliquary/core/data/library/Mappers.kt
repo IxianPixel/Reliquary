@@ -9,11 +9,15 @@ import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.Playlist
+import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
 import com.malgra.reliquary.core.network.model.ChannelDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
 import com.malgra.reliquary.core.network.model.VideoDto
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -41,7 +45,23 @@ internal fun VideoDto.toEntity(baseUrl: HttpUrl, now: Long) = VideoEntity(
     watchedEpochSeconds = player.watchedDate,
     positionSeconds = player.position ?: 0.0,
     fetchedAtMillis = now,
+    subtitlesJson = subtitles
+        .mapNotNull { dto ->
+            baseUrl.absolute(dto.mediaUrl)?.let { url -> StoredSubtitle(dto.lang, dto.name, url, dto.source == "auto") }
+        }
+        .takeIf { it.isNotEmpty() }
+        ?.let { subtitleJson.encodeToString(ListSerializer(StoredSubtitle.serializer()), it) },
 )
+
+/** How subtitles are kept in the video row. */
+@Serializable
+private data class StoredSubtitle(val lang: String, val name: String, val url: String, val auto: Boolean)
+
+private val subtitleJson = Json { ignoreUnknownKeys = true }
+
+private fun parseSubtitles(json: String?): List<Subtitle> = json?.let {
+    runCatching { subtitleJson.decodeFromString(ListSerializer(StoredSubtitle.serializer()), it) }.getOrNull()
+}.orEmpty().map { Subtitle(it.lang, it.name, it.url, it.auto) }
 
 /** [previous] keeps the tab flags, which only `/nav/` provides. */
 internal fun ChannelDto.toEntity(baseUrl: HttpUrl, now: Long, previous: ChannelEntity?) = ChannelEntity(
@@ -105,6 +125,7 @@ internal fun VideoEntity.toModel(pending: PendingProgressEntity? = null) = Video
     watched = pending?.watched ?: watched,
     position = (pending?.positionSeconds ?: positionSeconds).seconds,
     syncPending = pending != null,
+    subtitles = parseSubtitles(subtitlesJson),
 )
 
 internal fun ChannelEntity.toModel(): Channel = Channel(

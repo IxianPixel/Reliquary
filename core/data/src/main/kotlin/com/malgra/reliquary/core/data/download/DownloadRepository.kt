@@ -90,6 +90,13 @@ class DownloadRepository @Inject constructor(
         withContext(Dispatchers.IO) { Storage(files.usedBytes(), files.freeBytes()) }
     }
 
+    /** Subtitle files saved with [videoId]'s download, by track key. */
+    suspend fun localSubtitles(videoId: String): Map<String, File> = withContext(Dispatchers.IO) {
+        val video = db.videoDao().get(videoId)?.toModel() ?: return@withContext emptyMap()
+        video.subtitles.mapNotNull { sub -> files.subtitle(videoId, sub.key).takeIf { it.exists() }?.let { sub.key to it } }
+            .toMap()
+    }
+
     /** The finished file for [videoId], if there is one. */
     suspend fun localFile(videoId: String): File? = withContext(Dispatchers.IO) {
         val row = downloads.get(videoId)

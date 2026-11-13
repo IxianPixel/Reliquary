@@ -30,6 +30,8 @@ data class VideoEntity(
     val watchedEpochSeconds: Long?,
     val positionSeconds: Double,
     val fetchedAtMillis: Long,
+    /** The server's subtitle tracks as JSON (see the data layer's mapper); null if it has none. */
+    val subtitlesJson: String? = null,
 )
 
 @Entity(tableName = "channel")

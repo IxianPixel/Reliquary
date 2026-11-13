@@ -10,6 +10,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.malgra.reliquary.core.data.di.NotificationIcon
+import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.model.DownloadStatus
 import dagger.assisted.Assisted
@@ -22,6 +24,8 @@ class DownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val db: ReliquaryDatabase,
     private val downloader: MediaDownloader,
+    private val videos: VideoRepository,
+    private val icon: NotificationIcon,
 ) : CoroutineWorker(context, params) {
 
     private val downloads = db.downloadDao()
@@ -42,7 +46,10 @@ class DownloadWorker @AssistedInject constructor(
             runCatching { setForeground(foregroundInfo(videoId, video.title, fraction(written, total))) }
         }
         return when (outcome) {
-            MediaDownloader.Outcome.Done -> Result.success()
+            MediaDownloader.Outcome.Done -> {
+                videos.get(videoId)?.let { downloader.downloadSubtitles(videoId, it.subtitles) }
+                Result.success()
+            }
             MediaDownloader.Outcome.Retry -> Result.retry()
             MediaDownloader.Outcome.Failed -> Result.failure()
         }
@@ -62,7 +69,7 @@ class DownloadWorker @AssistedInject constructor(
             )
         }
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(icon.smallIcon)
             .setContentTitle(applicationContext.getString(R.string.download_notification_title, title))
             .setProgress(100, ((fraction ?: 0f) * 100).toInt(), fraction == null)
             .setOngoing(true)

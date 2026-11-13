@@ -13,11 +13,13 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.malgra.reliquary.core.data.di.ApplicationScope
+import com.malgra.reliquary.core.data.di.NotificationIcon
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +38,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var progress: ProgressRepository
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+    @Inject lateinit var notificationIcon: NotificationIcon
 
     private var session: MediaSession? = null
     private var tracker: ProgressTracker? = null
@@ -66,6 +69,9 @@ class PlaybackService : MediaSessionService() {
             )
         }
         session = builder.build()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(notificationIcon.smallIcon) },
+        )
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -97,7 +103,11 @@ class PlaybackService : MediaSessionService() {
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(
             mediaItems.map { item ->
-                item.requestMetadata.mediaUri?.let { item.buildUpon().setUri(it).build() } ?: item
+                val uri = item.requestMetadata.mediaUri ?: return@map item
+                item.buildUpon()
+                    .setUri(uri)
+                    .setSubtitleConfigurations(item.subtitleConfigurationsFromRequest())
+                    .build()
             }.toMutableList(),
         )
     }

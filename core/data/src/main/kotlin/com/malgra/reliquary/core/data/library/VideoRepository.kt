@@ -87,6 +87,9 @@ class VideoRepository internal constructor(
 
     fun video(id: String): Flow<Video?> = videos.observe(id).map { it?.toModel() }
 
+    /** The cached video, if any. */
+    suspend fun get(id: String): Video? = videos.get(id)?.toModel()
+
     /** A playlist's videos as cached, in playlist order. */
     fun playlistListing(playlistId: String): Flow<List<Video>> =
         videos.observeListing(ListKeys.playlistVideos(playlistId)).map { rows -> rows.map { it.toModel() } }

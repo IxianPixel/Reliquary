@@ -214,7 +214,8 @@ interface DownloadDao {
             video.addedEpochSeconds AS video_addedEpochSeconds, video.mediaUrl AS video_mediaUrl,
             video.mediaSizeBytes AS video_mediaSizeBytes, video.thumbnailUrl AS video_thumbnailUrl,
             video.watched AS video_watched, video.watchedEpochSeconds AS video_watchedEpochSeconds,
-            video.positionSeconds AS video_positionSeconds, video.fetchedAtMillis AS video_fetchedAtMillis
+            video.positionSeconds AS video_positionSeconds, video.fetchedAtMillis AS video_fetchedAtMillis,
+            video.subtitlesJson AS video_subtitlesJson
         FROM download LEFT JOIN video ON video.id = download.videoId
         ORDER BY download.createdAtMillis DESC
         """,

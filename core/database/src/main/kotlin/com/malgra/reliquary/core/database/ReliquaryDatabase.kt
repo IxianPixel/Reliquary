@@ -31,11 +31,12 @@ import com.malgra.reliquary.core.database.entity.VideoEntity
         DownloadEntity::class,
         KeepOfflineRuleEntity::class,
     ],
-    version = 4,
+    version = 5,
     autoMigrations = [
         AutoMigration(from = 1, to = 2), // adds pending_progress
         AutoMigration(from = 2, to = 3), // adds download
         AutoMigration(from = 3, to = 4), // adds keep_offline_rule and download.ruleId
+        AutoMigration(from = 4, to = 5), // adds video.subtitlesJson
     ],
 )
 abstract class ReliquaryDatabase : RoomDatabase() {

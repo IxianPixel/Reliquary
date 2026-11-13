@@ -163,4 +163,20 @@ class LibraryRepositoriesTest {
 
         assertEquals(listOf("p1", "p2"), videos.playlistQueue("PL1").map { it.id })
     }
+
+    @Test fun subtitlesAreKeptWithAbsoluteUrls() = runTest {
+        val subtitles = """[
+            {"lang":"en","name":"English","ext":"vtt","source":"user","media_url":"/media/subtitle/a.en.vtt"},
+            {"lang":"de","name":"German","ext":"vtt","source":"auto","media_url":"/media/subtitle/a.de.vtt"}
+        ]"""
+        server.enqueue(MockResponse(code = 200, body = videoJson("a", subtitles = subtitles)))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        videos.refreshVideo("a")
+
+        val tracks = videos.get("a")!!.subtitles
+        assertEquals(listOf("en.user", "de.auto"), tracks.map { it.key })
+        assertEquals(server.url("/media/subtitle/a.en.vtt").toString(), tracks.first().url)
+        assertEquals(listOf("English", "German"), tracks.map { it.name })
+    }
 }

@@ -255,6 +255,10 @@ fun PlayerSheet(
                 onToggleFullScreen = toggleFullScreen,
                 onMinimise = state::collapse,
                 modifier = Modifier.fillMaxSize(),
+                onSubtitleChosen = { subtitle ->
+                    if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
+                    viewModel?.rememberSubtitleLanguage(subtitle?.language)
+                },
             )
             return@BoxWithConstraints
         }
@@ -324,6 +328,10 @@ fun PlayerSheet(
                     interactive = expanded,
                     surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
                     modifier = Modifier.fillMaxSize(),
+                    onSubtitleChosen = { subtitle ->
+                        if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
+                        viewModel?.rememberSubtitleLanguage(subtitle?.language)
+                    },
                 )
             }
 
@@ -399,6 +407,9 @@ private fun rememberPlaybackLoad(viewModel: PlayerViewModel, request: PlayReques
                 return@LaunchedEffect
             }
             player.setMediaItems(playback.items, playback.startIndex, playback.startPositionMs)
+            // Start with the subtitles last chosen (off unless one was picked).
+            val language = viewModel.subtitleLanguage()
+            if (language == null) player.disableSubtitles() else player.selectSubtitle(null, language)
             player.prepare()
             player.play()
         }

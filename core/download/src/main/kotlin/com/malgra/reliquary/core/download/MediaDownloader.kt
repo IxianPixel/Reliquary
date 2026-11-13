@@ -4,6 +4,8 @@ import android.util.Log
 import com.malgra.reliquary.core.data.download.DownloadFiles
 import com.malgra.reliquary.core.database.dao.DownloadDao
 import com.malgra.reliquary.core.model.DownloadStatus
+import com.malgra.reliquary.core.model.Subtitle
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -45,6 +47,28 @@ class MediaDownloader @Inject constructor(
             val total = downloads.get(videoId)?.totalBytes ?: 0
             downloads.update(videoId, DownloadStatus.Queued.name, files.partial(videoId).length(), total)
             Outcome.Retry
+        }
+    }
+
+    /**
+     * Saves the video's subtitle files next to it, so they work offline. Best
+     * effort: a subtitle that fails is skipped (the player falls back to the
+     * server's copy when online).
+     */
+    suspend fun downloadSubtitles(videoId: String, subtitles: List<Subtitle>) = withContext(Dispatchers.IO) {
+        for (subtitle in subtitles) {
+            val target = files.subtitle(videoId, subtitle.key)
+            if (target.exists()) continue
+            try {
+                client.newCall(Request.Builder().url(subtitle.url).build()).execute().use { response ->
+                    if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                    val part = File(target.path + ".part")
+                    part.outputStream().use { out -> response.body.byteStream().copyTo(out) }
+                    if (!part.renameTo(target)) part.delete()
+                }
+            } catch (e: IOException) {
+                Log.w(TAG, "Subtitle ${subtitle.key} for $videoId not saved", e)
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.data.progress.ProgressRepository
+import com.malgra.reliquary.core.data.settings.AppSettings
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.Video
@@ -20,6 +21,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 /** What to load into the player: the queue, which item to start with, and where in it. */
 data class PlaybackRequest(val items: List<MediaItem>, val startIndex: Int, val startPositionMs: Long)
@@ -54,6 +57,7 @@ class PlayerViewModel @AssistedInject constructor(
     private val downloads: DownloadRepository,
     channels: ChannelRepository,
     playlists: PlaylistRepository,
+    private val settings: AppSettings,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -88,10 +92,8 @@ class PlayerViewModel @AssistedInject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    init {
-        // Fresh details and server watch state; the cached row plays meanwhile (or offline).
-        viewModelScope.launch { videos.refreshVideo(videoId) }
-    }
+    /** Fresh details and server watch state; the cached row is shown meanwhile (or offline). */
+    private val refresh = viewModelScope.async { videos.refreshVideo(videoId) }
 
     /** The player moved to [id] (from [playlistId]'s queue, if any). */
     fun onNowPlaying(id: String, playlistId: String?) {
@@ -111,15 +113,25 @@ class PlayerViewModel @AssistedInject constructor(
             val list = videos.playlistQueue(playlistId)
             val index = list.indexOfFirst { it.id == videoId }
             if (index >= 0) {
-                val items = list.map { it.toMediaItem(downloads.localFile(it.id)?.let(Uri::fromFile), playlistId) }
+                val items = list.map { it.toMediaItem(downloads.localFile(it.id)?.let(Uri::fromFile), playlistId, downloads.localSubtitles(it.id)) }
                 return PlaybackRequest(items, index, start)
             }
         }
-        val video = withTimeoutOrNull(LOAD_TIMEOUT_MS) { this@PlayerViewModel.video.filterNotNull().first() }
+        // The cached row may predate the server's subtitles, so give the refresh a moment first.
+        withTimeoutOrNull(REFRESH_WAIT_MS) { refresh.await() }
+        val video = withTimeoutOrNull(LOAD_TIMEOUT_MS) { videos.get(videoId) ?: this@PlayerViewModel.video.filterNotNull().first() }
             ?: return null
         // A downloaded copy plays without the server.
         val local = downloads.localFile(videoId)?.let(Uri::fromFile)
-        return PlaybackRequest(listOf(video.toMediaItem(local)), 0, start)
+        return PlaybackRequest(listOf(video.toMediaItem(local, null, downloads.localSubtitles(videoId))), 0, start)
+    }
+
+    /** The subtitle language to start with; null means off. */
+    suspend fun subtitleLanguage(): String? = settings.subtitleLanguage.first()
+
+    /** Remembers the choice for the next video. */
+    fun rememberSubtitleLanguage(language: String?) {
+        viewModelScope.launch { settings.setSubtitleLanguage(language) }
     }
 
     fun startDownload() {
@@ -139,6 +151,9 @@ class PlayerViewModel @AssistedInject constructor(
 
     private companion object {
         const val LOAD_TIMEOUT_MS = 15_000L
+
+        /** How long playback waits for fresh details before using the cached ones. */
+        const val REFRESH_WAIT_MS = 3_000L
     }
 }
 
@@ -148,14 +163,32 @@ private const val EXTRA_PLAYLIST_ID = "com.malgra.reliquary.playlistId"
 internal val MediaItem.playlistId: String?
     get() = mediaMetadata.extras?.getString(EXTRA_PLAYLIST_ID)
 
-/** [localFile] replaces the server URL when the video is downloaded. */
-internal fun Video.toMediaItem(localFile: Uri? = null, playlistId: String? = null): MediaItem {
+/**
+ * [localFile] and [localSubtitles] (by track key) replace the server's copies
+ * when the video is downloaded.
+ */
+internal fun Video.toMediaItem(
+    localFile: Uri? = null,
+    playlistId: String? = null,
+    localSubtitles: Map<String, File> = emptyMap(),
+): MediaItem {
     val uri: Uri = localFile ?: mediaUrl.toUri()
+    val tracks = subtitles.map { subtitle ->
+        SubtitleTrack(
+            id = subtitle.key,
+            uri = localSubtitles[subtitle.key]?.let(Uri::fromFile) ?: subtitle.url.toUri(),
+            language = subtitle.language,
+            label = subtitle.name,
+        )
+    }
     return MediaItem.Builder()
         .setMediaId(id)
         .setUri(uri)
-        // The URI doesn't survive the trip to the service; PlaybackService restores it from here.
-        .setRequestMetadata(MediaItem.RequestMetadata.Builder().setMediaUri(uri).build())
+        .setSubtitleConfigurations(tracks.map { it.toConfiguration() })
+        // The URI and subtitles don't survive the trip to the service; PlaybackService restores them from here.
+        .setRequestMetadata(
+            MediaItem.RequestMetadata.Builder().setMediaUri(uri).setExtras(tracks.toBundle()).build(),
+        )
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)

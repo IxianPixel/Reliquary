@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +27,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -43,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -63,6 +67,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
@@ -70,11 +75,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
@@ -85,6 +94,7 @@ import com.malgra.reliquary.core.designsystem.theme.OverlayColors
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.DownloadStatus
+import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.ui.ChannelAvatar
 import com.malgra.reliquary.core.ui.ServerImage
@@ -93,8 +103,8 @@ import com.malgra.reliquary.core.ui.compactCount
 import com.malgra.reliquary.core.ui.formatDate
 import com.malgra.reliquary.core.ui.formatDuration
 import com.malgra.reliquary.core.ui.metaLine
-import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
 import androidx.annotation.OptIn as UnstableOptIn
 import com.malgra.reliquary.core.ui.R as UiR
 
@@ -128,6 +138,12 @@ private class ControlSizes(
     val knob: Dp,
 )
 
+/** The seek bar's touch height. */
+private val SeekBarHeight = 24.dp
+
+/** Space between captions and the bottom edge (and its progress line) while the controls are hidden. */
+private val CaptionGap = 16.dp
+
 private val CompactControls = ControlSizes(
     play = 56.dp, playIcon = 26.dp, playCornerPaused = 28.dp, playCornerPlaying = 16.dp,
     skip = 40.dp, skipIcon = 24.dp, gap = 20.dp, track = 3.dp, knob = 12.dp,
@@ -155,6 +171,7 @@ internal fun VideoArea(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
     surfaceType: Int = SURFACE_TYPE_SURFACE_VIEW,
+    onSubtitleChosen: (Subtitle?) -> Unit = {},
 ) {
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
     Box(
@@ -210,6 +227,13 @@ internal fun VideoArea(
         val played = if (duration > 0) (progress.currentPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
         val showControls = controlsVisible || !status.isPlaying || scrub != null
 
+        // Captions keep clear of the progress line, and move up past the time row and seek bar while they show.
+        val captionLift by animateDpAsState(
+            if (showControls) sizes.skip + SeekBarHeight else CaptionGap,
+            label = "captionLift",
+        )
+        Subtitles(player, Modifier.fillMaxSize().padding(bottom = captionLift))
+
         // With the controls hidden, a hairline still shows how far in you are.
         if (!showControls && !fullScreen && duration > 0) {
             Box(
@@ -249,9 +273,102 @@ internal fun VideoArea(
                 },
                 onToggleFullScreen = onToggleFullScreen,
                 onMinimise = onMinimise,
+                subtitles = video?.subtitles.orEmpty(),
+                onSubtitleChosen = onSubtitleChosen,
             )
         }
     }
+}
+
+/**
+ * The current subtitle cues, drawn by media3's SubtitleView so they follow the
+ * phone's caption settings (Settings › Accessibility › Captions).
+ */
+@UnstableOptIn(UnstableApi::class)
+@Composable
+private fun Subtitles(player: Player, modifier: Modifier = Modifier) {
+    val cues by produceState(player.currentCues.cues, player) {
+        val listener = object : Player.Listener {
+            override fun onCues(cueGroup: CueGroup) {
+                value = cueGroup.cues
+            }
+        }
+        player.addListener(listener)
+        awaitDispose { player.removeListener(listener) }
+    }
+    AndroidView(
+        factory = { context ->
+            SubtitleView(context).apply {
+                setUserDefaultStyle()
+                setUserDefaultTextSize()
+            }
+        },
+        update = { view -> view.setCues(cues) },
+        modifier = modifier,
+    )
+}
+
+/** The subtitles button and its menu: Off, then each track, with the one showing ticked. */
+@Composable
+private fun SubtitleButton(
+    player: Player,
+    subtitles: List<Subtitle>,
+    size: Dp,
+    onChosen: (Subtitle?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var open by remember { mutableStateOf(false) }
+    val selected by produceState(player.selectedSubtitleKey(), player) {
+        val listener = object : Player.Listener {
+            override fun onTracksChanged(tracks: Tracks) {
+                value = player.selectedSubtitleKey()
+            }
+        }
+        player.addListener(listener)
+        awaitDispose { player.removeListener(listener) }
+    }
+    Box(modifier) {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(size)) {
+            Icon(
+                painterResource(ReliquaryIcons.Subtitles),
+                contentDescription = stringResource(R.string.player_subtitles),
+                tint = Color.White,
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            SubtitleMenuItem(stringResource(R.string.player_subtitles_off), selected == null) {
+                open = false
+                onChosen(null)
+            }
+            subtitles.forEach { subtitle ->
+                val label = if (subtitle.autoGenerated) {
+                    stringResource(R.string.player_subtitle_auto, subtitle.name)
+                } else {
+                    subtitle.name
+                }
+                SubtitleMenuItem(label, selected == subtitle.key) {
+                    open = false
+                    onChosen(subtitle)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleMenuItem(label: String, checked: Boolean, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        onClick = onClick,
+        leadingIcon = {
+            if (checked) {
+                Icon(painterResource(ReliquaryIcons.Check), contentDescription = null)
+            } else {
+                Spacer(Modifier.size(24.dp))
+            }
+        },
+        modifier = Modifier.semantics { selected = checked },
+    )
 }
 
 @Composable
@@ -267,12 +384,25 @@ private fun Controls(
     onScrubEnd: () -> Unit,
     onToggleFullScreen: () -> Unit,
     onMinimise: () -> Unit,
+    subtitles: List<Subtitle>,
+    onSubtitleChosen: (Subtitle?) -> Unit,
 ) {
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.35f)),
     ) {
+        if (subtitles.isNotEmpty()) {
+            SubtitleButton(
+                player = player,
+                subtitles = subtitles,
+                size = sizes.skip,
+                onChosen = onSubtitleChosen,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp),
+            )
+        }
         if (!fullScreen) {
             IconButton(onClick = onMinimise, modifier = Modifier.padding(4.dp).size(sizes.skip)) {
                 Icon(
@@ -395,7 +525,7 @@ private fun SeekBar(
         contentAlignment = Alignment.CenterStart,
         modifier = modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(SeekBarHeight)
             .onSizeChanged { width = it.width.coerceAtLeast(1) }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
