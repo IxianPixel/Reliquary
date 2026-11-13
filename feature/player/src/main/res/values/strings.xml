@@ -34,4 +34,7 @@
     <string name="player_subtitle_auto">%s (auto-generated)</string>
     <string name="mini_player_open">Open player: %s</string>
     <string name="mini_player_close">Stop playback</string>
+    <string name="player_skipped_sponsor">Skipped a sponsor segment</string>
+    <string name="player_skipped_segment">Skipped a SponsorBlock segment</string>
+    <string name="player_skip_undo">Undo</string>
 </resources>

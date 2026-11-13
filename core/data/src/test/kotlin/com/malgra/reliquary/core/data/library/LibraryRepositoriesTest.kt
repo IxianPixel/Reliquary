@@ -195,4 +195,37 @@ class LibraryRepositoriesTest {
         db.downloadDao().setThumbnail("a", "/files/a.jpg")
         assertEquals("file:///files/a.jpg", videos.get("a")!!.thumbnailUrl)
     }
+
+    @Test fun sponsorSegmentsKeepOnlySkipsInOrder() = runTest {
+        val sponsorblock = """{
+            "is_enabled": true,
+            "segments": [
+                {"segment": [300.5, 320.0], "category": "outro", "actionType": "skip", "UUID": "b"},
+                {"segment": [12.0, 45.25], "category": "sponsor", "actionType": "skip", "UUID": "a"},
+                {"segment": [90.0, 90.0], "category": "poi_highlight", "actionType": "poi", "UUID": "c"},
+                {"segment": [50.0, 40.0], "category": "sponsor", "actionType": "skip", "UUID": "d"}
+            ]
+        }"""
+        server.enqueue(MockResponse(code = 200, body = videoJson("a", sponsorblock = sponsorblock)))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        videos.refreshVideo("a")
+
+        val segments = videos.get("a")!!.sponsorSegments
+        assertEquals(listOf("sponsor", "outro"), segments.map { it.category })
+        assertEquals(12.seconds, segments[0].start)
+        assertEquals(45.25.seconds, segments[0].end)
+    }
+
+    @Test fun sponsorSegmentsAreIgnoredWhenTheServerHasSponsorBlockOff() = runTest {
+        val sponsorblock = """{"is_enabled": false, "segments": [
+            {"segment": [12.0, 45.0], "category": "sponsor", "actionType": "skip", "UUID": "a"}
+        ]}"""
+        server.enqueue(MockResponse(code = 200, body = videoJson("a", sponsorblock = sponsorblock)))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        videos.refreshVideo("a")
+
+        assertTrue(videos.get("a")!!.sponsorSegments.isEmpty())
+    }
 }

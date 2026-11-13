@@ -185,9 +185,13 @@ internal fun Video.toMediaItem(
         .setMediaId(id)
         .setUri(uri)
         .setSubtitleConfigurations(tracks.map { it.toConfiguration() })
-        // The URI and subtitles don't survive the trip to the service; PlaybackService restores them from here.
+        // The URI, subtitles and SponsorBlock segments don't survive the trip to the service as they are;
+        // PlaybackService restores them from here.
         .setRequestMetadata(
-            MediaItem.RequestMetadata.Builder().setMediaUri(uri).setExtras(tracks.toBundle()).build(),
+            MediaItem.RequestMetadata.Builder()
+                .setMediaUri(uri)
+                .setExtras(tracks.toBundle().putSponsorSegments(sponsorSegments))
+                .build(),
         )
         .setMediaMetadata(
             MediaMetadata.Builder()

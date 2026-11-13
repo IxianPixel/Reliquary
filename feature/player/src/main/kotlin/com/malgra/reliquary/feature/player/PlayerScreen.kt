@@ -94,6 +94,7 @@ import com.malgra.reliquary.core.designsystem.theme.OverlayColors
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.Download
 import com.malgra.reliquary.core.model.DownloadStatus
+import com.malgra.reliquary.core.model.SponsorSegment
 import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.ui.ChannelAvatar
@@ -137,6 +138,16 @@ private class ControlSizes(
     val track: Dp,
     val knob: Dp,
 )
+
+/** Where [this] segments sit along a video [durationMs] long, as 0..1 fractions. */
+private fun List<SponsorSegment>.toFractions(durationMs: Long): List<ClosedFloatingPointRange<Float>> {
+    if (durationMs <= 0) return emptyList()
+    return map { segment ->
+        val from = (segment.start.inWholeMilliseconds.toFloat() / durationMs).coerceIn(0f, 1f)
+        val to = (segment.end.inWholeMilliseconds.toFloat() / durationMs).coerceIn(from, 1f)
+        from..to
+    }
+}
 
 /** The seek bar's touch height. */
 private val SeekBarHeight = 24.dp
@@ -274,6 +285,7 @@ internal fun VideoArea(
                 onToggleFullScreen = onToggleFullScreen,
                 onMinimise = onMinimise,
                 subtitles = video?.subtitles.orEmpty(),
+                segments = video?.sponsorSegments.orEmpty().toFractions(duration),
                 onSubtitleChosen = onSubtitleChosen,
             )
         }
@@ -386,6 +398,7 @@ private fun Controls(
     onMinimise: () -> Unit,
     subtitles: List<Subtitle>,
     onSubtitleChosen: (Subtitle?) -> Unit,
+    segments: List<ClosedFloatingPointRange<Float>>,
 ) {
     Box(
         Modifier
@@ -469,6 +482,7 @@ private fun Controls(
                 knob = sizes.knob,
                 onScrub = onScrub,
                 onScrubEnd = onScrubEnd,
+                segments = segments,
                 // Full width along the video's edge in portrait; inset in full screen.
                 modifier = Modifier.padding(horizontal = if (fullScreen) 16.dp else 0.dp),
             )
@@ -517,6 +531,7 @@ private fun SeekBar(
     onScrub: (Float) -> Unit,
     onScrubEnd: () -> Unit,
     modifier: Modifier = Modifier,
+    segments: List<ClosedFloatingPointRange<Float>> = emptyList(),
 ) {
     val label = stringResource(R.string.player_seek)
     var width by remember { mutableIntStateOf(1) }
@@ -570,6 +585,12 @@ private fun SeekBar(
             val stroke = track.toPx()
             drawLine(Color.White.copy(alpha = 0.3f), Offset(start, y), Offset(end, y), stroke, StrokeCap.Round)
             drawLine(OverlayColors.Progress, Offset(start, y), Offset(x, y), stroke, StrokeCap.Round)
+            // SponsorBlock segments, drawn over the progress as in the mockup.
+            for (segment in segments) {
+                val from = start + (end - start) * segment.start
+                val to = start + (end - start) * segment.endInclusive
+                drawLine(OverlayColors.SponsorSegment, Offset(from, y), Offset(to, y), stroke, StrokeCap.Butt)
+            }
             if (enabled) drawCircle(OverlayColors.Progress, radius = knob.toPx() / 2, center = Offset(x, y))
         }
     }

@@ -32,6 +32,8 @@ data class VideoEntity(
     val fetchedAtMillis: Long,
     /** The server's subtitle tracks as JSON (see the data layer's mapper); null if it has none. */
     val subtitlesJson: String? = null,
+    /** The video's skippable SponsorBlock segments as JSON (see the data layer's mapper); null if none. */
+    val sponsorSegmentsJson: String? = null,
 )
 
 @Entity(tableName = "channel")

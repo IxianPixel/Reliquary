@@ -1,6 +1,7 @@
 package com.malgra.reliquary.feature.player
 
 import android.content.ComponentName
+import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
@@ -15,7 +16,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 
 /**
  * A controller for [PlaybackService], connected while the caller is on screen.
@@ -28,7 +33,9 @@ fun rememberMediaController(): MediaController? {
     var controller by remember { mutableStateOf<MediaController?>(null) }
     DisposableEffect(context) {
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token)
+            .setListener(SkipEventsListener)
+            .buildAsync()
         future.addListener(
             { controller = runCatching { future.get() }.getOrNull() },
             ContextCompat.getMainExecutor(context),
@@ -39,6 +46,18 @@ fun rememberMediaController(): MediaController? {
         }
     }
     return controller
+}
+
+/** Hands the service's SponsorBlock skips to the player screen. */
+private object SkipEventsListener : MediaController.Listener {
+    override fun onCustomCommand(
+        controller: MediaController,
+        command: SessionCommand,
+        args: Bundle,
+    ): ListenableFuture<SessionResult> {
+        if (command.customAction == SponsorSkips.ACTION) SponsorSkips.received(args)
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    }
 }
 
 /** The item loaded in [player], updated as it changes. */

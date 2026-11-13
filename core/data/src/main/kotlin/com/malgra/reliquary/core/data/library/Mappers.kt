@@ -9,11 +9,13 @@ import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.Playlist
+import com.malgra.reliquary.core.model.SponsorSegment
 import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
 import com.malgra.reliquary.core.network.model.ChannelDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
+import com.malgra.reliquary.core.network.model.SponsorBlockDto
 import com.malgra.reliquary.core.network.model.VideoDto
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -50,17 +52,40 @@ internal fun VideoDto.toEntity(baseUrl: HttpUrl, now: Long) = VideoEntity(
             baseUrl.absolute(dto.mediaUrl)?.let { url -> StoredSubtitle(dto.lang, dto.name, url, dto.source == "auto") }
         }
         .takeIf { it.isNotEmpty() }
-        ?.let { subtitleJson.encodeToString(ListSerializer(StoredSubtitle.serializer()), it) },
+        ?.let { rowJson.encodeToString(ListSerializer(StoredSubtitle.serializer()), it) },
+    sponsorSegmentsJson = sponsorblock?.storedSegments()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { rowJson.encodeToString(ListSerializer(StoredSegment.serializer()), it) },
 )
+
+/** Only segments meant to be skipped (not highlights or chapters), with a sensible range, in order. */
+private fun SponsorBlockDto.storedSegments(): List<StoredSegment> =
+    if (!isEnabled) {
+        emptyList()
+    } else {
+        segments
+            .filter { it.actionType == "skip" && it.segment.size == 2 && it.segment[1] > it.segment[0] }
+            .map { StoredSegment(it.segment[0], it.segment[1], it.category) }
+            .sortedBy { it.start }
+    }
+
+/** How SponsorBlock segments are kept in the video row; times in seconds. */
+@Serializable
+private data class StoredSegment(val start: Double, val end: Double, val category: String)
+
+private fun parseSegments(json: String?): List<SponsorSegment> = json?.let {
+    runCatching { rowJson.decodeFromString(ListSerializer(StoredSegment.serializer()), it) }.getOrNull()
+}.orEmpty().map { SponsorSegment(it.start.seconds, it.end.seconds, it.category) }
 
 /** How subtitles are kept in the video row. */
 @Serializable
 private data class StoredSubtitle(val lang: String, val name: String, val url: String, val auto: Boolean)
 
-private val subtitleJson = Json { ignoreUnknownKeys = true }
+/** For the JSON kept in cache rows (subtitles, SponsorBlock segments). */
+private val rowJson = Json { ignoreUnknownKeys = true }
 
 private fun parseSubtitles(json: String?): List<Subtitle> = json?.let {
-    runCatching { subtitleJson.decodeFromString(ListSerializer(StoredSubtitle.serializer()), it) }.getOrNull()
+    runCatching { rowJson.decodeFromString(ListSerializer(StoredSubtitle.serializer()), it) }.getOrNull()
 }.orEmpty().map { Subtitle(it.lang, it.name, it.url, it.auto) }
 
 /** [previous] keeps the tab flags, which only `/nav/` provides. */
@@ -130,6 +155,7 @@ internal fun VideoEntity.toModel(pending: PendingProgressEntity? = null) = Video
     position = (pending?.positionSeconds ?: positionSeconds).seconds,
     syncPending = pending != null,
     subtitles = parseSubtitles(subtitlesJson),
+    sponsorSegments = parseSegments(sponsorSegmentsJson),
 )
 
 internal fun ChannelEntity.toModel(): Channel = Channel(

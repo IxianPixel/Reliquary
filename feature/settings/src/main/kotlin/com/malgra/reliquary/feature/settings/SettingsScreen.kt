@@ -31,6 +31,7 @@ import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
     val account by viewModel.account.collectAsStateWithLifecycle()
     val wifiOnly by viewModel.wifiOnlyDownloads.collectAsStateWithLifecycle()
+    val skipSponsors by viewModel.skipSponsorSegments.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -58,6 +59,19 @@ fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel =
                 value = wifiOnly,
                 role = Role.Switch,
                 onValueChange = viewModel::setWifiOnlyDownloads,
+            ),
+        )
+
+        SectionTitle(stringResource(R.string.settings_section_playback))
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.settings_skip_sponsors)) },
+            supportingContent = { Text(stringResource(R.string.settings_skip_sponsors_body)) },
+            leadingContent = { Icon(painterResource(ReliquaryIcons.Skip), contentDescription = null) },
+            trailingContent = { Switch(checked = skipSponsors, onCheckedChange = null) },
+            modifier = Modifier.toggleable(
+                value = skipSponsors,
+                role = Role.Switch,
+                onValueChange = viewModel::setSkipSponsorSegments,
             ),
         )
 

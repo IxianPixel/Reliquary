@@ -2,6 +2,7 @@ package com.malgra.reliquary.feature.player
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -16,13 +17,19 @@ import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.malgra.reliquary.core.data.di.ApplicationScope
 import com.malgra.reliquary.core.data.di.NotificationIcon
 import com.malgra.reliquary.core.data.progress.ProgressRepository
+import com.malgra.reliquary.core.data.settings.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 
@@ -39,9 +46,14 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var progress: ProgressRepository
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
     @Inject lateinit var notificationIcon: NotificationIcon
+    @Inject lateinit var settings: AppSettings
 
     private var session: MediaSession? = null
     private var tracker: ProgressTracker? = null
+    private var skipper: SponsorSkipper? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    @Volatile private var skipSponsors = true
 
     override fun onCreate() {
         super.onCreate()
@@ -69,6 +81,10 @@ class PlaybackService : MediaSessionService() {
             )
         }
         session = builder.build()
+        serviceScope.launch { settings.skipSponsorSegments.collect { skipSponsors = it } }
+        skipper = SponsorSkipper(player, enabled = { skipSponsors }) { segment ->
+            session?.broadcastCustomCommand(SessionCommand(SponsorSkips.ACTION, Bundle.EMPTY), SponsorSkips.toBundle(segment))
+        }
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(notificationIcon.smallIcon) },
         )
@@ -84,6 +100,9 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         tracker?.release()
         tracker = null
+        skipper?.release()
+        skipper = null
+        serviceScope.cancel()
         session?.run {
             player.release()
             release()

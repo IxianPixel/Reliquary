@@ -37,6 +37,7 @@ internal fun videoJson(
     position: Double? = null,
     watchedDate: Long? = null,
     subtitles: String = "[]",
+    sponsorblock: String = "null",
 ) = """
     {
       "youtube_id": "$id",
@@ -50,6 +51,7 @@ internal fun videoJson(
       "media_size": 1000,
       "player": {"watched": $watched, "duration": 842, "duration_str": "14:02"${position?.let { ", \"position\": $it" } ?: ""}${watchedDate?.let { ", \"watched_date\": $it" } ?: ""}},
       "subtitles": $subtitles,
+      "sponsorblock": $sponsorblock,
       "_index": "ta_video",
       "_score": 1.0
     }

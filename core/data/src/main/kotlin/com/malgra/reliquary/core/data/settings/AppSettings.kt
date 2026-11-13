@@ -25,6 +25,13 @@ class AppSettings @Inject constructor(@SettingsStore private val store: DataStor
         store.edit { it[WIFI_ONLY_DOWNLOADS] = enabled }
     }
 
+    /** The player skips SponsorBlock segments (sponsors, intros and so on) unless this is off. On by default. */
+    val skipSponsorSegments: Flow<Boolean> = store.data.map { it[SKIP_SPONSOR_SEGMENTS] ?: true }
+
+    suspend fun setSkipSponsorSegments(enabled: Boolean) {
+        store.edit { it[SKIP_SPONSOR_SEGMENTS] = enabled }
+    }
+
     /** The subtitle language last chosen in the player; null means subtitles off (the default). */
     val subtitleLanguage: Flow<String?> = store.data.map { it[SUBTITLE_LANGUAGE]?.takeIf(String::isNotEmpty) }
 
@@ -35,5 +42,6 @@ class AppSettings @Inject constructor(@SettingsStore private val store: DataStor
     private companion object {
         val WIFI_ONLY_DOWNLOADS = booleanPreferencesKey("wifi_only_downloads")
         val SUBTITLE_LANGUAGE = stringPreferencesKey("subtitle_language")
+        val SKIP_SPONSOR_SEGMENTS = booleanPreferencesKey("skip_sponsor_segments")
     }
 }

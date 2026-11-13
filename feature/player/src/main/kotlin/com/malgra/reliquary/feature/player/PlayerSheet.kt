@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -260,6 +261,14 @@ fun PlayerSheet(
                     viewModel?.rememberSubtitleLanguage(subtitle?.language)
                 },
             )
+            SponsorSkipSnackbar(
+                player,
+                active = true,
+                // Above the time row and seek bar.
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
+            )
             return@BoxWithConstraints
         }
 
@@ -374,6 +383,15 @@ fun PlayerSheet(
                 }
             }
         }
+
+        SponsorSkipSnackbar(
+            player,
+            active = expanded,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(16.dp),
+        )
     }
 }
 

@@ -28,7 +28,7 @@ class SettingsViewModel @Inject constructor(
     sessions: SessionRepository,
     private val auth: AuthRepository,
     private val downloads: DownloadRepository,
-    settings: AppSettings,
+    private val settings: AppSettings,
 ) : ViewModel() {
 
     val wifiOnlyDownloads: StateFlow<Boolean> = settings.wifiOnlyDownloads
@@ -36,6 +36,13 @@ class SettingsViewModel @Inject constructor(
 
     fun setWifiOnlyDownloads(enabled: Boolean) {
         viewModelScope.launch { downloads.setWifiOnly(enabled) }
+    }
+
+    val skipSponsorSegments: StateFlow<Boolean> = settings.skipSponsorSegments
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setSkipSponsorSegments(enabled: Boolean) {
+        viewModelScope.launch { settings.setSkipSponsorSegments(enabled) }
     }
 
     val account: StateFlow<AccountInfo?> = sessions.state

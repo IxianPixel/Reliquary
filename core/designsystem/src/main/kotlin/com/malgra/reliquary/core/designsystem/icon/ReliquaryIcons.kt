@@ -36,4 +36,5 @@ object ReliquaryIcons {
     @DrawableRes val Minus = R.drawable.ic_minus
     @DrawableRes val Plus = R.drawable.ic_plus
     @DrawableRes val Subtitles = R.drawable.ic_subtitles
+    @DrawableRes val Skip = R.drawable.ic_skip
 }
