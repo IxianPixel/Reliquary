@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.annotation.OptIn as UnstableOptIn
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,6 +51,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toAndroidRect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -80,7 +84,6 @@ import com.malgra.reliquary.core.ui.metaLine
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
-import androidx.annotation.OptIn as UnstableOptIn
 
 /** Where the player sheet rests. Dismissed is just below the screen; settling there stops playback. */
 enum class SheetPosition { Expanded, Collapsed, Dismissed }
@@ -164,6 +167,10 @@ fun PlayerSheet(
     // The sheet stays composed even with nothing to show, so its positions are always known:
     // a first open that composed it and asked it to expand in the same frame didn't animate.
     val showing = nowPlaying != null || state.request != null
+    val inPictureInPicture = rememberIsInPictureInPicture()
+    // Where the video is on screen (when the sheet is at rest), for the picture-in-picture window to grow from.
+    var videoBounds by remember { mutableStateOf<android.graphics.Rect?>(null) }
+    PictureInPictureSupport(player, enabled = showing, sourceBounds = videoBounds)
 
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val activity = LocalActivity.current
@@ -230,6 +237,21 @@ fun PlayerSheet(
         }
         val load = viewModel?.let { rememberPlaybackLoad(it, request, player) }
 
+        // In picture-in-picture the window is just the video.
+        if (inPictureInPicture) {
+            val video by viewModel?.video?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
+            VideoArea(
+                player = player,
+                video = video,
+                fullScreen = true,
+                onToggleFullScreen = {},
+                onMinimise = {},
+                interactive = false,
+                modifier = Modifier.fillMaxSize(),
+            )
+            return@BoxWithConstraints
+        }
+
         BackHandler(enabled = expanded && !landscape) { state.collapse() }
         BackHandler(enabled = expanded && landscape) {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
@@ -255,7 +277,9 @@ fun PlayerSheet(
                 fullScreen = true,
                 onToggleFullScreen = toggleFullScreen,
                 onMinimise = state::collapse,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { videoBounds = it.boundsInWindow().toAndroidRect() },
                 onSubtitleChosen = { subtitle ->
                     if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
                     viewModel?.rememberSubtitleLanguage(subtitle?.language)
@@ -326,7 +350,8 @@ fun PlayerSheet(
                 Modifier
                     .offset(videoX, videoY)
                     .size(width = lerp(MiniVideoWidth, containerWidth, f), height = lerp(MiniVideoHeight, fullVideoHeight, f))
-                    .clip(RoundedCornerShape(lerp(8.dp, 0.dp, f))),
+                    .clip(RoundedCornerShape(lerp(8.dp, 0.dp, f)))
+                    .onGloballyPositioned { if (f == 0f || f == 1f) videoBounds = it.boundsInWindow().toAndroidRect() },
             ) {
                 VideoArea(
                     player = player,
