@@ -66,6 +66,21 @@ data class SponsorSegment(val start: Duration, val end: Duration, val category: 
     val isSponsor: Boolean get() = category == "sponsor"
 }
 
+/** A YouTube comment Tube Archivist saved with a video. */
+data class Comment(
+    val id: String,
+    val author: String,
+    val text: String,
+    val published: Instant?,
+    val likeCount: Int?,
+    /** Written by the video's own channel. */
+    val byUploader: Boolean,
+    /** Hearted by the video's channel. */
+    val favorited: Boolean,
+    /** Answers to this comment, oldest first. */
+    val replies: List<Comment> = emptyList(),
+)
+
 /** Tube Archivist's `vid_type`, which matches the YouTube channel tabs. */
 enum class VideoType(val apiValue: String) {
     Videos("videos"),

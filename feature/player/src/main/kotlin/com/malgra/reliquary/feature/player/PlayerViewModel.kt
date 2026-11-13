@@ -9,17 +9,21 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.library.ChannelRepository
+import com.malgra.reliquary.core.data.library.LoadResult
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.data.progress.ProgressRepository
 import com.malgra.reliquary.core.data.settings.AppSettings
 import com.malgra.reliquary.core.model.Channel
+import com.malgra.reliquary.core.model.Comment
 import com.malgra.reliquary.core.model.Download
+import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.Video
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,15 +34,26 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
 
 /** What to load into the player: the queue, which item to start with, and where in it. */
 data class PlaybackRequest(val items: List<MediaItem>, val startIndex: Int, val startPositionMs: Long)
+
+/** A video's comments as the screen sees them: nothing shown until some have loaded. */
+sealed interface CommentsState {
+    data object Loading : CommentsState
+    /** Empty when the server saved none. */
+    data class Loaded(val comments: List<Comment>) : CommentsState {
+        /** Comments and replies together. */
+        val total: Int = comments.sumOf { 1 + it.replies.size }
+    }
+    data class Failed(val error: LoadError) : CommentsState
+}
 
 /** The playlist being played as a queue, in order. */
 data class PlayQueue(val playlistId: String, val name: String, val videos: List<Video>)
@@ -91,6 +106,31 @@ class PlayerViewModel @AssistedInject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Videos like the one showing, from the server; empty while loading, offline, or if it has none. */
+    val similar: StateFlow<List<Video>> = shownId
+        .flatMapLatest { id ->
+            flow {
+                emit(emptyList())
+                emit((videos.similar(id) as? LoadResult.Ok)?.value.orEmpty())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The showing video's saved comments, from the server. */
+    val comments: StateFlow<CommentsState> = shownId
+        .flatMapLatest { id ->
+            flow {
+                emit(CommentsState.Loading)
+                emit(
+                    when (val result = videos.comments(id)) {
+                        is LoadResult.Ok -> CommentsState.Loaded(result.value)
+                        is LoadResult.Failed -> CommentsState.Failed(result.error)
+                    },
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CommentsState.Loading)
 
     /** Fresh details and server watch state; the cached row is shown meanwhile (or offline). */
     private val refresh = viewModelScope.async { videos.refreshVideo(videoId) }

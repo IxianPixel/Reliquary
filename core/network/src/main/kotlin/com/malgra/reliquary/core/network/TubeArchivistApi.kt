@@ -5,6 +5,7 @@ import com.malgra.reliquary.core.network.auth.RequestAuth
 import com.malgra.reliquary.core.network.model.AccountDto
 import com.malgra.reliquary.core.network.model.ChannelDto
 import com.malgra.reliquary.core.network.model.ChannelNavDto
+import com.malgra.reliquary.core.network.model.CommentDto
 import com.malgra.reliquary.core.network.model.LoginRequest
 import com.malgra.reliquary.core.network.model.Page
 import com.malgra.reliquary.core.network.model.PingDto
@@ -59,6 +60,14 @@ interface TubeArchivistApi {
 
     @GET("api/video/{id}/")
     suspend fun video(@Path("id") id: String): VideoDto
+
+    /** The video's saved comments with their replies; 404 when the server saved none. Not paginated. */
+    @GET("api/video/{id}/comment/")
+    suspend fun comments(@Path("id") id: String): Response<List<CommentDto>>
+
+    /** Up to 6 videos like this one, by title and tags; not paginated. */
+    @GET("api/video/{id}/similar/")
+    suspend fun similar(@Path("id") id: String): List<VideoDto>
 
     @POST("api/video/{id}/progress/")
     suspend fun setProgress(@Path("id") id: String, @Body body: ProgressRequest): Response<Unit>

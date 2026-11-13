@@ -609,8 +609,16 @@ internal fun Details(
     queue: PlayQueue?,
     onPlayQueued: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
+    comments: CommentsState = CommentsState.Loading,
+    similar: List<Video> = emptyList(),
+    onOpenVideo: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
+    var showingComments by rememberSaveable(video.id) { mutableStateOf(false) }
+    val loadedComments = (comments as? CommentsState.Loaded)?.takeIf { it.comments.isNotEmpty() }
+    if (showingComments && loadedComments != null) {
+        CommentsSheet(loadedComments, onDismiss = { showingComments = false })
+    }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
@@ -674,6 +682,10 @@ internal fun Details(
                 )
             }
         }
+        // Only when the server saved some; offline or none, there's nothing to show.
+        if (loadedComments != null) {
+            item(key = "comments") { CommentsRow(loadedComments, onOpen = { showingComments = true }) }
+        }
         // "Next in" the playlist, as in the mockup: the next few, tap to jump.
         val current = queue?.videos?.indexOfFirst { it.id == video.id } ?: -1
         val upNext = if (queue != null && current >= 0) {
@@ -696,6 +708,18 @@ internal fun Details(
                     // Edge to edge like other lists, past the column's padding.
                     modifier = Modifier.bleedHorizontally(16.dp),
                 )
+            }
+        }
+        if (similar.isNotEmpty()) {
+            item(key = "similar-header") {
+                Text(
+                    stringResource(R.string.player_similar),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            items(similar, key = { "similar-${it.id}" }) { other ->
+                VideoListItem(other, onClick = { onOpenVideo(other.id) }, modifier = Modifier.bleedHorizontally(16.dp))
             }
         }
     }

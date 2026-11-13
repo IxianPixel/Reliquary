@@ -37,4 +37,16 @@
     <string name="player_skipped_sponsor">Skipped a sponsor segment</string>
     <string name="player_skipped_segment">Skipped a SponsorBlock segment</string>
     <string name="player_skip_undo">Undo</string>
+    <string name="player_comments">Comments</string>
+    <string name="player_hide_replies">Hide replies</string>
+    <string name="player_comment_hearted">Hearted by the channel</string>
+    <string name="player_similar">Similar videos</string>
+    <plurals name="player_replies">
+        <item quantity="one">%d reply</item>
+        <item quantity="other">%d replies</item>
+    </plurals>
+    <plurals name="player_comment_likes">
+        <item quantity="one">%s like</item>
+        <item quantity="other">%s likes</item>
+    </plurals>
 </resources>

@@ -8,20 +8,22 @@ import androidx.room.withTransaction
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.ListingStateEntity
 import com.malgra.reliquary.core.database.entity.VideoEntity
-import com.malgra.reliquary.core.network.Failure
-import com.malgra.reliquary.core.network.toFailure
-import kotlinx.coroutines.flow.first
+import com.malgra.reliquary.core.model.Comment
 import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
 import com.malgra.reliquary.core.model.WatchFilter
+import com.malgra.reliquary.core.network.Failure
 import com.malgra.reliquary.core.network.TubeArchivistApi
+import com.malgra.reliquary.core.network.commentsOrEmpty
 import com.malgra.reliquary.core.network.model.Page
 import com.malgra.reliquary.core.network.model.VideoDto
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import com.malgra.reliquary.core.network.toFailure
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 @Singleton
 class VideoRepository internal constructor(
@@ -132,6 +134,19 @@ class VideoRepository internal constructor(
         val server = library.server()
         videos.upsert(listOf(server.api.video(id).toEntity(server.baseUrl, clock())))
     }.errorOrNull
+
+    /** [id]'s saved comments from the server, as threads; empty when it saved none. */
+    suspend fun comments(id: String): LoadResult<List<Comment>> = load {
+        library.server().api.commentsOrEmpty(id).toComments()
+    }
+
+    /** Up to 6 videos like [id], from the server. They're cached, so they show progress and downloads. */
+    suspend fun similar(id: String): LoadResult<List<Video>> = load {
+        val server = library.server()
+        val found = server.api.similar(id).filter { it.youtubeId != id }
+        videos.upsert(found.map { it.toEntity(server.baseUrl, clock()) })
+        found.mapNotNull { videos.get(it.youtubeId)?.toModel() }
+    }
 
     private companion object {
         /** Up to a few hundred videos, at TA's usual page sizes. */

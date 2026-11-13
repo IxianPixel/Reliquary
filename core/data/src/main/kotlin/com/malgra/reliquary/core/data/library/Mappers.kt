@@ -7,6 +7,7 @@ import com.malgra.reliquary.core.database.entity.VideoEntity
 import com.malgra.reliquary.core.database.entity.VideoWithPending
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
+import com.malgra.reliquary.core.model.Comment
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.SponsorSegment
@@ -14,18 +15,19 @@ import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
 import com.malgra.reliquary.core.network.model.ChannelDto
+import com.malgra.reliquary.core.network.model.CommentDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
 import com.malgra.reliquary.core.network.model.SponsorBlockDto
 import com.malgra.reliquary.core.network.model.VideoDto
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
-import okhttp3.HttpUrl
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl
 
 // Server -> cache. Media paths are server-relative ("/media/..."), so they are
 // resolved against the base URL here and stored absolute.
@@ -87,6 +89,37 @@ private val rowJson = Json { ignoreUnknownKeys = true }
 private fun parseSubtitles(json: String?): List<Subtitle> = json?.let {
     runCatching { rowJson.decodeFromString(ListSerializer(StoredSubtitle.serializer()), it) }.getOrNull()
 }.orEmpty().map { Subtitle(it.lang, it.name, it.url, it.auto) }
+
+/**
+ * Comments as threads: top-level comments in the server's order, each with its
+ * replies oldest first. Replies arrive nested, but are also accepted flat (by
+ * `comment_parent`), and a reply whose comment is missing is shown on its own.
+ */
+internal fun List<CommentDto>.toComments(): List<Comment> {
+    val all = flatMap { listOf(it) + it.replies }
+    val ids = all.mapTo(HashSet()) { it.id }
+    val repliesByParent = all.filter { it.isReplyTo(ids) }.groupBy { it.parent }
+    return all.filterNot { it.isReplyTo(ids) }.distinctBy { it.id }.map { top ->
+        top.toComment(
+            repliesByParent[top.id].orEmpty().distinctBy { it.id }
+                .sortedBy { it.timestamp ?: Long.MAX_VALUE }
+                .map { it.toComment(emptyList()) },
+        )
+    }
+}
+
+private fun CommentDto.isReplyTo(ids: Set<String>) = parent != null && parent != "root" && parent in ids
+
+private fun CommentDto.toComment(replies: List<Comment>) = Comment(
+    id = id,
+    author = author.orEmpty(),
+    text = text.orEmpty(),
+    published = timestamp?.let(Instant::fromEpochSeconds),
+    likeCount = likeCount,
+    byUploader = authorIsUploader,
+    favorited = isFavorited,
+    replies = replies,
+)
 
 /** [previous] keeps the tab flags, which only `/nav/` provides. */
 internal fun ChannelDto.toEntity(baseUrl: HttpUrl, now: Long, previous: ChannelEntity?) = ChannelEntity(

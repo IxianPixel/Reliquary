@@ -2,10 +2,19 @@ package com.malgra.reliquary.core.data.library
 
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.DownloadEntity
+import com.malgra.reliquary.core.model.Comment
 import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.SearchResults
+import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
@@ -18,13 +27,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -227,5 +229,57 @@ class LibraryRepositoriesTest {
         videos.refreshVideo("a")
 
         assertTrue(videos.get("a")!!.sponsorSegments.isEmpty())
+    }
+
+    @Test fun commentsComeBackAsThreads() = runTest {
+        // One nested reply (as the server sends them) and one flat, plus a reply whose comment is missing.
+        val comments = """[
+            {"comment_id": "c1", "comment_text": "First!", "comment_author": "@ana", "comment_timestamp": 1700000000,
+             "comment_likecount": 12, "comment_is_favorited": true, "comment_author_is_uploader": false, "comment_parent": "root",
+             "comment_replies": [
+                {"comment_id": "r2", "comment_text": "Later", "comment_author": "@bo", "comment_timestamp": 1700000200, "comment_parent": "c1"}
+             ]},
+            {"comment_id": "r1", "comment_text": "Earlier", "comment_author": "@chan", "comment_timestamp": 1700000100,
+             "comment_author_is_uploader": true, "comment_parent": "c1"},
+            {"comment_id": "c2", "comment_text": "Second", "comment_author": "@di", "comment_likecount": null, "comment_parent": "root"},
+            {"comment_id": "r9", "comment_text": "Orphan", "comment_author": "@ed", "comment_parent": "gone"}
+        ]"""
+        server.enqueue(MockResponse(code = 200, body = comments))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        val threads = assertIs<LoadResult.Ok<List<Comment>>>(videos.comments("a")).value
+
+        assertEquals(listOf("c1", "c2", "r9"), threads.map { it.id })
+        assertEquals(listOf("r1", "r2"), threads[0].replies.map { it.id }) // oldest first
+        assertTrue(threads[0].replies[0].byUploader)
+        assertTrue(threads[0].favorited)
+        assertEquals(12, threads[0].likeCount)
+        assertNull(threads[1].likeCount)
+        assertEquals("/api/video/a/comment/", server.takeRequest().url.encodedPath)
+    }
+
+    @Test fun aVideoWithNoSavedCommentsHasNone() = runTest {
+        server.enqueue(MockResponse(code = 404, body = """{"error": "video not found"}"""))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        assertEquals(emptyList(), assertIs<LoadResult.Ok<List<Comment>>>(videos.comments("a")).value)
+    }
+
+    @Test fun commentsReportServerErrors() = runTest {
+        server.enqueue(MockResponse(code = 500))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        assertEquals(LoadError.ServerError, assertIs<LoadResult.Failed>(videos.comments("a")).error)
+    }
+
+    @Test fun similarVideosAreCachedAndLeaveOutTheVideoItself() = runTest {
+        server.enqueue(MockResponse(code = 200, body = "[${videoJson("b")}, ${videoJson("a")}, ${videoJson("c")}]"))
+        val videos = VideoRepository(db, libraryApiFor(server)) { 0L }
+
+        val similar = assertIs<LoadResult.Ok<List<Video>>>(videos.similar("a")).value
+
+        assertEquals(listOf("b", "c"), similar.map { it.id })
+        assertEquals("Video b", videos.get("b")?.title) // cached
+        assertEquals("/api/video/a/similar/", server.takeRequest().url.encodedPath)
     }
 }

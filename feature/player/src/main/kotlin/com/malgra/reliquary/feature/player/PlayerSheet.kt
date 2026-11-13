@@ -404,6 +404,7 @@ fun PlayerSheet(
                             state.collapse()
                             onOpenChannel(channelId)
                         },
+                        onOpenVideo = { videoId -> state.open(videoId) },
                     )
                 }
             }
@@ -473,11 +474,14 @@ private fun PlayerDetails(
     player: Player,
     unavailable: Boolean,
     onOpenChannel: (String) -> Unit,
+    onOpenVideo: (String) -> Unit,
 ) {
     val video by viewModel.video.collectAsStateWithLifecycle()
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val download by viewModel.download.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
+    val comments by viewModel.comments.collectAsStateWithLifecycle()
+    val similar by viewModel.similar.collectAsStateWithLifecycle()
     val current = video
     when {
         current != null -> Details(
@@ -497,6 +501,9 @@ private fun PlayerDetails(
                 player.play()
             },
             modifier = Modifier.fillMaxSize(),
+            comments = comments,
+            similar = similar,
+            onOpenVideo = onOpenVideo,
         )
         unavailable -> Text(
             stringResource(R.string.player_not_found),

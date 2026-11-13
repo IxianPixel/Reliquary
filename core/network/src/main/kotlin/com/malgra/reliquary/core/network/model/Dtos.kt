@@ -113,6 +113,21 @@ data class SubtitleDto(
     val url: String? = null,
 )
 
+/** A saved comment. The server nests answers under the comment they reply to in [replies]. */
+@Serializable
+data class CommentDto(
+    @SerialName("comment_id") val id: String,
+    @SerialName("comment_text") val text: String? = null,
+    @SerialName("comment_author") val author: String? = null,
+    @SerialName("comment_author_is_uploader") val authorIsUploader: Boolean = false,
+    @SerialName("comment_timestamp") val timestamp: Long? = null,
+    @SerialName("comment_likecount") val likeCount: Int? = null,
+    @SerialName("comment_is_favorited") val isFavorited: Boolean = false,
+    /** "root" for a top-level comment, else the id of the comment it answers. */
+    @SerialName("comment_parent") val parent: String? = null,
+    @SerialName("comment_replies") val replies: List<CommentDto> = emptyList(),
+)
+
 @Serializable
 data class SponsorSegmentDto(
     val segment: List<Double>,
