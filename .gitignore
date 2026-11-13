@@ -15,6 +15,7 @@ captures/
 local.properties
 *.keystore
 *.jks
+keystore.properties
 
 # OS
 .DS_Store
