@@ -52,6 +52,7 @@ import com.malgra.reliquary.feature.player.rememberMediaController
 import com.malgra.reliquary.feature.player.rememberPlayerSheetState
 import com.malgra.reliquary.feature.playlists.PlaylistScreen
 import com.malgra.reliquary.feature.playlists.PlaylistsScreen
+import com.malgra.reliquary.feature.queue.QueueScreen
 import com.malgra.reliquary.feature.search.SearchScreen
 import com.malgra.reliquary.feature.settings.SettingsScreen
 import com.malgra.reliquary.navigation.ChannelDetail
@@ -60,6 +61,7 @@ import com.malgra.reliquary.navigation.Downloads
 import com.malgra.reliquary.navigation.Home
 import com.malgra.reliquary.navigation.PlaylistDetail
 import com.malgra.reliquary.navigation.Playlists
+import com.malgra.reliquary.navigation.Queue
 import com.malgra.reliquary.navigation.Search
 import com.malgra.reliquary.navigation.Settings
 import com.malgra.reliquary.navigation.TopLevelDestination
@@ -83,6 +85,7 @@ fun ReliquaryApp(viewModel: MainViewModel = hiltViewModel()) {
 @Composable
 private fun MainShell(viewModel: MainViewModel) {
     val pendingSync by viewModel.pendingSync.collectAsStateWithLifecycle()
+    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
     val backStack = rememberNavBackStack(Home)
     // The tab whose stack is showing: the nearest top-level key from the top of the stack.
     val selectedTab = backStack.lastOrNull { key -> TopLevelDestination.entries.any { it.key == key } }
@@ -103,7 +106,7 @@ private fun MainShell(viewModel: MainViewModel) {
     ) {
         NavigationSuiteScaffold(
             navigationSuiteItems = {
-                TopLevelDestination.entries.forEach { destination ->
+                TopLevelDestination.entries.filter { it != TopLevelDestination.QUEUE || isAdmin }.forEach { destination ->
                     item(
                         selected = destination.key == selectedTab,
                         onClick = {
@@ -172,6 +175,7 @@ private fun MainShell(viewModel: MainViewModel) {
                                 )
                             }
                             entry<Downloads> { DownloadsScreen(onOpenVideo = openVideo) }
+                            entry<Queue> { QueueScreen() }
                             entry<Search> {
                                 SearchScreen(
                                     onBack = back,

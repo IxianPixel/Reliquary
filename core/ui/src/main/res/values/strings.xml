@@ -82,4 +82,5 @@
     <string name="ui_local_network_body">Your server is on your local network. Android needs your permission (Nearby devices) before Reliquary can reach it.</string>
     <string name="ui_local_network_allow">Allow</string>
     <string name="ui_local_network_settings">Open settings</string>
+    <string name="add_by_url_cancel">Cancel</string>
 </resources>

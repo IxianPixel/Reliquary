@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Add channels.** Admins can subscribe to a channel from the Channels tab by
+  pasting its YouTube link, @handle or ID, and subscribe or unsubscribe on its
+  page. Tube Archivist then queues its new videos. (#24)
+- **Channel settings.** Admins can change a channel's own settings on the
+  server from its page: page sizes for videos, shorts and live streams,
+  download format, auto delete, playlist indexing and SponsorBlock. (#26)
+- **Add playlists.** Admins can add a playlist from the Playlists tab by
+  pasting its YouTube link or ID, and subscribe or unsubscribe on its page.
+  Tube Archivist then queues its new videos. (#25)
+- **Queue.** A new tab for admins with the server's download queue: rescan
+  subscriptions, download everything or one video next, ignore or remove
+  videos, add a video, channel or playlist by link, and follow the server's
+  progress. Downloads stays for videos saved on the phone. (#23)
+
 ## v0.1.0
 
 ### Added

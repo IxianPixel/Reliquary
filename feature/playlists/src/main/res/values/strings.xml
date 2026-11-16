@@ -2,7 +2,22 @@
 <resources>
     <string name="playlists_title">Playlists</string>
     <string name="playlists_empty">No playlists yet. Playlists you add in Tube Archivist appear here.</string>
+    <string name="playlists_add">Add playlist</string>
+    <string name="playlists_add_title">Add a playlist</string>
+    <string name="playlists_add_label">YouTube link or playlist ID</string>
+    <string name="playlists_add_supporting">Tube Archivist subscribes to it and queues its new videos.</string>
+    <string name="playlists_add_confirm">Subscribe</string>
+    <string name="playlists_add_error_not_playlist">That isn’t a playlist link or ID.</string>
+    <string name="playlists_add_error_offline">Can’t reach your server. Check your connection.</string>
+    <string name="playlists_add_error_server">Tube Archivist couldn’t add it. Try again in a moment.</string>
+    <string name="playlists_subscribing">Subscribing. The playlist appears here once Tube Archivist has added it.</string>
+    <string name="playlists_added">Playlist added</string>
+    <string name="playlists_still_adding">Tube Archivist is still adding the playlist. Pull to refresh later.</string>
     <string name="playlist_back">Back</string>
+    <string name="playlist_subscribe">Subscribe</string>
+    <string name="playlist_unsubscribe">Unsubscribe</string>
+    <string name="playlist_subscription_offline">Can’t reach your server. Check your connection.</string>
+    <string name="playlist_subscription_failed">Tube Archivist couldn’t change the subscription. Try again in a moment.</string>
     <string name="playlist_play_all">Play all</string>
     <string name="playlist_empty">None of this playlist’s videos are in the archive yet.</string>
     <plurals name="playlist_archived_of">

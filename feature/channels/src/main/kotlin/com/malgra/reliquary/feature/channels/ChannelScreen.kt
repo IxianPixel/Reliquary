@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -19,14 +20,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
@@ -44,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -61,6 +68,7 @@ import androidx.paging.compose.itemKey
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.KeepOfflineRule
+import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.WatchFilter
@@ -92,6 +100,10 @@ fun ChannelScreen(
         key = channelId,
         creationCallback = { factory -> factory.create(channelId) },
     ),
+    settingsViewModel: ChannelSettingsViewModel = hiltViewModel<ChannelSettingsViewModel, ChannelSettingsViewModel.Factory>(
+        key = "settings-$channelId",
+        creationCallback = { factory -> factory.create(channelId) },
+    ),
 ) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
@@ -100,6 +112,18 @@ fun ChannelScreen(
     val playlists = viewModel.playlists.collectAsLazyPagingItems()
     val rule by viewModel.keepOfflineRule.collectAsStateWithLifecycle()
     var editingRule by rememberSaveable { mutableStateOf(false) }
+    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
+    val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
+    val changingSubscription by viewModel.changingSubscription.collectAsStateWithLifecycle()
+    val snackbars = remember { SnackbarHostState() }
+    val resources = LocalResources.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.subscriptionErrors.collect { error ->
+            val message = if (error == LoadError.Offline) R.string.channel_subscription_offline else R.string.channel_subscription_failed
+            snackbars.showSnackbar(resources.getString(message))
+        }
+    }
 
     val tabs = channel?.tabs.available()
     LaunchedEffect(tabs, selection.tab) {
@@ -126,7 +150,17 @@ fun ChannelScreen(
     ) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item(key = "header", contentType = "header") {
-                ChannelHeader(channel, videoCount, onBack, keepingOffline = rule != null, onKeepOffline = { editingRule = true })
+                ChannelHeader(
+                    channel,
+                    videoCount,
+                    onBack,
+                    keepingOffline = rule != null,
+                    onKeepOffline = { editingRule = true },
+                    showSubscribe = isAdmin,
+                    changingSubscription = changingSubscription,
+                    onSetSubscribed = viewModel::setSubscribed,
+                    onOpenSettings = if (isAdmin) settingsViewModel::open else null,
+                )
             }
             if (tabs.size > 1) {
                 item(key = "tabs", contentType = "tabs") {
@@ -143,6 +177,12 @@ fun ChannelScreen(
             }
         }
         StatusBarScrim(Modifier.align(Alignment.TopCenter), visible = bannerScrolledAway)
+        SnackbarHost(
+            snackbars,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
+        )
     }
 
     val current = channel
@@ -162,6 +202,15 @@ fun ChannelScreen(
                 editingRule = false
             },
             onDismiss = { editingRule = false },
+        )
+    }
+    if (settingsState.open && isAdmin && current != null) {
+        ChannelSettingsSheet(
+            channelName = current.name,
+            state = settingsState,
+            onSave = settingsViewModel::save,
+            onRetry = settingsViewModel::retry,
+            onDismiss = settingsViewModel::close,
         )
     }
 }
@@ -217,6 +266,10 @@ private fun ChannelHeader(
     onBack: () -> Unit,
     keepingOffline: Boolean,
     onKeepOffline: () -> Unit,
+    showSubscribe: Boolean,
+    changingSubscription: Boolean,
+    onSetSubscribed: (Boolean) -> Unit,
+    onOpenSettings: (() -> Unit)?,
 ) {
     val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bannerHeight = BannerHeight + statusBar
@@ -241,6 +294,22 @@ private fun ChannelHeader(
                 .size(40.dp),
         ) {
             Icon(painterResource(ReliquaryIcons.Back), contentDescription = stringResource(R.string.channel_back))
+        }
+        if (onOpenSettings != null) {
+            FilledIconButton(
+                onClick = onOpenSettings,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.35f),
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(8.dp)
+                    .size(40.dp),
+            ) {
+                Icon(painterResource(ReliquaryIcons.Settings), contentDescription = stringResource(R.string.channel_settings_open))
+            }
         }
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = bannerHeight - 36.dp),
@@ -275,7 +344,39 @@ private fun ChannelHeader(
                     )
                 }
             }
-            if (channel != null) KeepOfflineButton(keepingOffline, onKeepOffline)
+            if (channel != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KeepOfflineButton(keepingOffline, onKeepOffline)
+                    if (showSubscribe) {
+                        SubscribeButton(
+                            subscribed = channel.subscribed,
+                            enabled = !changingSubscription,
+                            onClick = { onSetSubscribed(!channel.subscribed) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscribeButton(subscribed: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    if (subscribed) {
+        OutlinedButton(onClick = onClick, enabled = enabled) {
+            Text(stringResource(R.string.channel_unsubscribe))
+        }
+    } else {
+        FilledTonalButton(onClick = onClick, enabled = enabled) {
+            Icon(
+                painterResource(ReliquaryIcons.Plus),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
+            Text(
+                stringResource(R.string.channel_subscribe),
+                modifier = Modifier.padding(start = ButtonDefaults.IconSpacing),
+            )
         }
     }
 }

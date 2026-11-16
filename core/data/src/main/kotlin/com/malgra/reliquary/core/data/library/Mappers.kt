@@ -150,8 +150,11 @@ internal fun PlaylistDto.toEntity(baseUrl: HttpUrl, now: Long) = PlaylistEntity(
     fetchedAtMillis = now,
 )
 
-private fun HttpUrl.absolute(path: String?): String? =
-    path?.takeIf { it.isNotBlank() }?.let { resolve(it)?.toString() }
+/** Null for anything not on the server itself: the app never loads from YouTube. */
+internal fun HttpUrl.absolute(path: String?): String? =
+    path?.takeIf { it.isNotBlank() }?.let(::resolve)
+        ?.takeIf { it.scheme == scheme && it.host == host && it.port == port }
+        ?.toString()
 
 /** TA sends ISO 8601 with an offset ("2021-01-01T00:00:00+00:00"); older data may be a bare date. */
 internal fun parseServerDate(value: String?): Long? {

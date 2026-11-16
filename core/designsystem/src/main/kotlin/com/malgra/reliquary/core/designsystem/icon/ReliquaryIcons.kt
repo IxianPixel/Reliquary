@@ -9,6 +9,7 @@ object ReliquaryIcons {
     @DrawableRes val Channels = R.drawable.ic_channels
     @DrawableRes val Playlists = R.drawable.ic_playlists
     @DrawableRes val Downloads = R.drawable.ic_downloads
+    @DrawableRes val Queue = R.drawable.ic_queue
     @DrawableRes val Archive = R.drawable.ic_archive
     @DrawableRes val Server = R.drawable.ic_server
     @DrawableRes val Person = R.drawable.ic_person

@@ -5,15 +5,26 @@ import com.malgra.reliquary.core.network.auth.RequestAuth
 import com.malgra.reliquary.core.network.model.AccountDto
 import com.malgra.reliquary.core.network.model.ChannelDto
 import com.malgra.reliquary.core.network.model.ChannelNavDto
+import com.malgra.reliquary.core.network.model.ChannelSettingsDto
+import com.malgra.reliquary.core.network.model.ChannelSubscribeRequest
+import com.malgra.reliquary.core.network.model.ChannelSubscribedUpdate
 import com.malgra.reliquary.core.network.model.CommentDto
 import com.malgra.reliquary.core.network.model.LoginRequest
+import com.malgra.reliquary.core.network.model.NotificationDto
 import com.malgra.reliquary.core.network.model.Page
 import com.malgra.reliquary.core.network.model.PingDto
 import com.malgra.reliquary.core.network.model.PlaylistDto
+import com.malgra.reliquary.core.network.model.PlaylistSubscribeRequest
+import com.malgra.reliquary.core.network.model.PlaylistUpdateRequest
 import com.malgra.reliquary.core.network.model.ProgressRequest
+import com.malgra.reliquary.core.network.model.QueueAddRequest
+import com.malgra.reliquary.core.network.model.QueueItemDto
+import com.malgra.reliquary.core.network.model.QueueStatusRequest
 import com.malgra.reliquary.core.network.model.SearchDto
+import com.malgra.reliquary.core.network.model.TaskStartedDto
 import com.malgra.reliquary.core.network.model.VideoDto
 import com.malgra.reliquary.core.network.model.WatchedRequest
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -104,4 +115,65 @@ interface TubeArchivistApi {
     /** Up to 30 hits per kind; not paginated. */
     @GET("api/search/")
     suspend fun search(@Query("query") query: String): SearchDto
+
+    // #25 Playlist subscriptions (admin only).
+
+    /** Starts a task that indexes and subscribes; the answer is only the task's ID. */
+    @POST("api/playlist/")
+    suspend fun subscribePlaylists(@Body body: PlaylistSubscribeRequest): Response<Unit>
+
+    /** For a playlist the server already has; answers with the updated playlist. */
+    @POST("api/playlist/{id}/")
+    suspend fun updatePlaylist(@Path("id") id: String, @Body body: PlaylistUpdateRequest): PlaylistDto
+
+    // #24 Add channels: subscriptions. The writes are wrapped in ChannelCalls.kt.
+
+    @POST("api/channel/")
+    suspend fun subscribeChannels(@Body body: ChannelSubscribeRequest): Response<Unit>
+
+    @POST("api/channel/{id}/")
+    suspend fun updateChannelSubscribed(@Path("id") id: String, @Body body: ChannelSubscribedUpdate): Response<Unit>
+
+    // #26 Channel settings: per-channel overwrites. Admin only to change. Wrapped in ChannelSettingsCalls.kt.
+
+    @GET("api/channel/{id}/")
+    suspend fun channelSettings(@Path("id") id: String): ChannelSettingsDto
+
+    /** Body is `{"channel_overwrites": {...}}`, built by hand so nulls (clear) survive. */
+    @POST("api/channel/{id}/")
+    suspend fun updateChannelOverwrites(@Path("id") id: String, @Body body: RequestBody): Response<Unit>
+
+    /** A channel the server has, found by URL, handle or ID; 404 until TA has added it. */
+    @GET("api/channel/search/")
+    suspend fun findChannel(@Query("q") query: String): ChannelDto
+
+    // #23 Queue: TA's download queue and the tasks that fill and empty it. Admin only.
+
+    @GET("api/download/")
+    suspend fun queue(
+        @Query("filter") filter: String,
+        @Query("page") page: Int? = null,
+    ): Page<QueueItemDto>
+
+    /** Takes video, channel or playlist URLs and IDs; TA resolves them in a background task. */
+    @POST("api/download/")
+    suspend fun addToQueue(@Body body: QueueAddRequest, @Query("autostart") autostart: Boolean? = null): TaskStartedDto
+
+    @POST("api/download/{id}/")
+    suspend fun setQueueStatus(@Path("id") id: String, @Body body: QueueStatusRequest): Response<Unit>
+
+    @DELETE("api/download/{id}/")
+    suspend fun removeFromQueue(@Path("id") id: String): Response<Unit>
+
+    /** Removes every item with this status ("pending" or "ignore"). */
+    @DELETE("api/download/")
+    suspend fun clearQueue(@Query("filter") filter: String): Response<Unit>
+
+    /** "update_subscribed" rescans subscriptions; "download_pending" downloads the queue. */
+    @POST("api/task/by-name/{name}/")
+    suspend fun startTask(@Path("name") name: String): TaskStartedDto
+
+    /** What the server's background tasks are doing now; "download" covers rescans and downloads. */
+    @GET("api/notification/")
+    suspend fun notifications(@Query("filter") filter: String): List<NotificationDto>
 }

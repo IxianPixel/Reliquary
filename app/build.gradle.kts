@@ -64,6 +64,7 @@ dependencies {
     implementation(project(":feature:channels"))
     implementation(project(":feature:playlists"))
     implementation(project(":feature:downloads"))
+    implementation(project(":feature:queue"))
     implementation(project(":feature:player"))
     implementation(project(":feature:search"))
     implementation(project(":feature:settings"))

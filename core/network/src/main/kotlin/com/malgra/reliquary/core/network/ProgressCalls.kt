@@ -19,6 +19,7 @@ suspend fun TubeArchivistApi.deletePosition(videoId: String) = clearProgress(vid
 suspend fun TubeArchivistApi.markWatched(videoId: String, watched: Boolean) =
     setWatched(WatchedRequest(videoId, watched)).orThrow()
 
-private fun Response<*>.orThrow() {
+/** Shared by the write calls in this module, whose response bodies aren't needed. */
+internal fun Response<*>.orThrow() {
     if (!isSuccessful) throw HttpException(this)
 }

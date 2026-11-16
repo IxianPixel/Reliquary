@@ -8,9 +8,11 @@ import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.PlaylistRepository
 import com.malgra.reliquary.core.data.library.VideoRepository
 import com.malgra.reliquary.core.data.rules.KeepOfflineRepository
+import com.malgra.reliquary.core.data.session.AccountRepository
 import com.malgra.reliquary.core.model.Channel
 import com.malgra.reliquary.core.model.ChannelTabs
 import com.malgra.reliquary.core.model.KeepOfflineRule
+import com.malgra.reliquary.core.model.LoadError
 import com.malgra.reliquary.core.model.Playlist
 import com.malgra.reliquary.core.model.Video
 import com.malgra.reliquary.core.model.VideoType
@@ -20,6 +22,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel as EventChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -65,6 +69,7 @@ class ChannelViewModel @AssistedInject constructor(
     videos: VideoRepository,
     playlists: PlaylistRepository,
     private val keepOffline: KeepOfflineRepository,
+    account: AccountRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -93,8 +98,27 @@ class ChannelViewModel @AssistedInject constructor(
     val keepOfflineRule: StateFlow<KeepOfflineRule?> = keepOffline.rule(KeepOfflineRule.Kind.Channel, channelId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Subscribing needs an admin account on the server. */
+    val isAdmin: StateFlow<Boolean> = account.isAdmin
+
+    private val _changingSubscription = MutableStateFlow(false)
+    val changingSubscription: StateFlow<Boolean> = _changingSubscription.asStateFlow()
+
+    private val _subscriptionErrors = EventChannel<LoadError>(EventChannel.BUFFERED)
+    val subscriptionErrors: Flow<LoadError> = _subscriptionErrors.receiveAsFlow()
+
     init {
         refresh()
+    }
+
+    /** [channel] follows through Room once the server has answered. */
+    fun setSubscribed(subscribed: Boolean) {
+        if (_changingSubscription.value) return
+        _changingSubscription.value = true
+        viewModelScope.launch {
+            channels.setSubscribed(channelId, subscribed)?.let { _subscriptionErrors.send(it) }
+            _changingSubscription.value = false
+        }
     }
 
     suspend fun typicalVideoBytes(): Long? = keepOffline.typicalVideoBytes(KeepOfflineRule.Kind.Channel, channelId)
