@@ -1,21 +1,24 @@
 package com.malgra.reliquary.core.data.di
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStoreFile
+import com.malgra.reliquary.core.data.AndroidDeviceNetwork
+import com.malgra.reliquary.core.data.DeviceNetwork
+import com.malgra.reliquary.core.data.download.AndroidDownloadStorage
+import com.malgra.reliquary.core.data.download.DownloadStorage
 import com.malgra.reliquary.core.data.library.LibraryCache
 import com.malgra.reliquary.core.data.library.RoomLibraryCache
 import com.malgra.reliquary.core.data.session.KeystoreSessionCipher
 import com.malgra.reliquary.core.data.session.SessionCipher
 import com.malgra.reliquary.core.data.session.SessionRepository
+import com.malgra.reliquary.core.data.settings.AndroidPreferencesLocation
+import com.malgra.reliquary.core.data.settings.PreferencesLocation
 import com.malgra.reliquary.core.network.auth.SessionHolder
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,14 +53,14 @@ object DataModule {
     @Provides
     @Singleton
     @SessionStore
-    fun sessionDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("session") }
+    fun sessionDataStore(location: PreferencesLocation): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { location.file(PreferencesLocation.SESSION) }
 
     @Provides
     @Singleton
     @SettingsStore
-    fun settingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+    fun settingsDataStore(location: PreferencesLocation): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { location.file(PreferencesLocation.SETTINGS) }
 }
 
 @Module
@@ -68,4 +71,10 @@ interface DataBindings {
     @Binds fun sessionCipher(cipher: KeystoreSessionCipher): SessionCipher
 
     @Binds fun libraryCache(cache: RoomLibraryCache): LibraryCache
+
+    @Binds fun downloadStorage(storage: AndroidDownloadStorage): DownloadStorage
+
+    @Binds fun deviceNetwork(network: AndroidDeviceNetwork): DeviceNetwork
+
+    @Binds fun preferencesLocation(location: AndroidPreferencesLocation): PreferencesLocation
 }

@@ -1,15 +1,10 @@
 package com.malgra.reliquary.core.data
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import com.malgra.reliquary.core.data.di.ApplicationScope
 import com.malgra.reliquary.core.network.ServerReachability
 import com.malgra.reliquary.core.network.ServerUrl
 import com.malgra.reliquary.core.network.TubeArchivistNetwork
 import com.malgra.reliquary.core.network.auth.SessionHolder
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,12 +21,12 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Whether the app is offline: no network, or the signed-in server didn't
  * answer its last request. While offline it checks the server every 30
- * seconds, and again whenever the network changes, so it notices when (say)
- * Tailscale reconnects.
+ * seconds, and again whenever the [DeviceNetwork] changes, so it notices when
+ * (say) Tailscale reconnects.
  */
 @Singleton
 class ConnectionMonitor @Inject constructor(
-    @ApplicationContext context: Context,
+    private val device: DeviceNetwork,
     private val reachability: ServerReachability,
     private val network: TubeArchivistNetwork,
     private val sessions: SessionHolder,
@@ -44,18 +39,15 @@ class ConnectionMonitor @Inject constructor(
     }.stateIn(scope, SharingStarted.Eagerly, false)
 
     init {
-        val connectivity = context.getSystemService(ConnectivityManager::class.java)
-        hasNetwork.value = connectivity.activeNetwork
-            ?.let(connectivity::getNetworkCapabilities)
-            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        connectivity.registerDefaultNetworkCallback(
-            object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
+        hasNetwork.value = device.isConnected()
+        device.listen(
+            object : DeviceNetwork.Listener {
+                override fun onAvailable() {
                     hasNetwork.value = true
                     scope.launch { checkServer() }
                 }
 
-                override fun onLost(network: Network) {
+                override fun onLost() {
                     hasNetwork.value = false
                 }
             },

@@ -1,9 +1,9 @@
 package com.malgra.reliquary.core.data.rules
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.test.core.app.ApplicationProvider
 import com.malgra.reliquary.core.data.download.DownloadFiles
 import com.malgra.reliquary.core.data.download.DownloadRepository
+import com.malgra.reliquary.core.data.download.FolderDownloadStorage
 import com.malgra.reliquary.core.data.fakes.FakeDownloadScheduler
 import com.malgra.reliquary.core.data.fakes.FakeLibrarySyncScheduler
 import com.malgra.reliquary.core.data.library.inMemoryDatabase
@@ -77,7 +77,7 @@ class KeepOfflineTest {
         val settings = AppSettings(
             PreferenceDataStoreFactory.create(scope = backgroundScope) { tmp.root.resolve("settings.preferences_pb") },
         )
-        val downloads = DownloadRepository(db, DownloadFiles(ApplicationProvider.getApplicationContext()), scheduler, settings)
+        val downloads = DownloadRepository(db, DownloadFiles(FolderDownloadStorage(tmp.newFolder("downloads"))), scheduler, settings)
         return downloads to KeepOfflineRepository(db, libraryApiFor(server), downloads, librarySync) { 0L }
     }
 

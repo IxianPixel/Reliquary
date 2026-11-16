@@ -3,6 +3,7 @@ package com.malgra.reliquary.core.download
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.malgra.reliquary.core.data.download.DownloadFiles
+import com.malgra.reliquary.core.data.download.FolderDownloadStorage
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.database.entity.DownloadEntity
 import com.malgra.reliquary.core.model.DownloadStatus
@@ -15,7 +16,9 @@ import okhttp3.OkHttpClient
 import okio.Buffer
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -29,9 +32,11 @@ import kotlin.test.assertTrue
 @Config(sdk = [35])
 class MediaDownloaderTest {
 
+    @get:Rule val tmp = TemporaryFolder()
+
     private lateinit var server: MockWebServer
     private lateinit var db: ReliquaryDatabase
-    private val files = DownloadFiles(ApplicationProvider.getApplicationContext())
+    private lateinit var files: DownloadFiles
     private val video = ByteArray(10_000) { (it % 251).toByte() }
 
     @Before fun setUp() {
@@ -39,13 +44,12 @@ class MediaDownloaderTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ReliquaryDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        files.delete("v")
+        files = DownloadFiles(FolderDownloadStorage(tmp.root))
     }
 
     @After fun tearDown() {
         db.close()
         server.close()
-        files.delete("v")
     }
 
     private fun downloader() = MediaDownloader(OkHttpClient(), files, db.downloadDao())
