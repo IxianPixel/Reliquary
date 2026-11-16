@@ -123,7 +123,9 @@ fun KeepOfflineSheet(
             }
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             SwitchRow(Res.string.keep_offline_unwatched, Res.string.keep_offline_unwatched_body, unwatched) { unwatched = it }
-            SwitchRow(Res.string.keep_offline_wifi, Res.string.keep_offline_wifi_body, wifi) { wifi = it }
+            if (wifiOnlySupported) {
+                SwitchRow(Res.string.keep_offline_wifi, Res.string.keep_offline_wifi_body, wifi) { wifi = it }
+            }
             SwitchRow(Res.string.keep_offline_remove, Res.string.keep_offline_remove_body, remove) { remove = it }
 
             Estimate(typicalVideoBytes, videos = if (whole) playlistSize else count)
@@ -269,7 +271,11 @@ fun keepOfflineSummary(rule: KeepOfflineRule): String {
     }
     return metaLine(
         amount,
-        stringResource(if (rule.wifiOnly) Res.string.keep_offline_summary_wifi else Res.string.keep_offline_summary_any_network),
+        if (wifiOnlySupported) {
+            stringResource(if (rule.wifiOnly) Res.string.keep_offline_summary_wifi else Res.string.keep_offline_summary_any_network)
+        } else {
+            null
+        },
         if (rule.removeWhenWatched) stringResource(Res.string.keep_offline_summary_remove) else null,
     )
 }
