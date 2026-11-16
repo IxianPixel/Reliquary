@@ -13,7 +13,7 @@ Material 3 Expressive, Catppuccin colours (Latte light, Mocha dark, Mauve accent
 ## Commands
 
 ```sh
-./gradlew assembleDebug testDebugUnitTest lintDebug   # what CI's "Build, test and lint" runs
+./gradlew assembleDebug testDebugUnitTest desktopTest lintDebug   # what CI's "Build, test and lint" runs
 ./gradlew :core:data:testDebugUnitTest                # one module's tests
 ./gradlew assembleRelease                             # R8 build; unsigned without a keystore
 python3 scripts/prepare-release.py 0.2.0              # on a release/* branch only (see Releases)
