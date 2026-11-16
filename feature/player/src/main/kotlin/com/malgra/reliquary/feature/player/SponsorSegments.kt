@@ -1,40 +1,15 @@
 package com.malgra.reliquary.feature.player
 
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import com.malgra.reliquary.core.model.SponsorSegment
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlin.time.Duration.Companion.milliseconds
-
-private const val KEY_STARTS = "com.malgra.reliquary.segmentStarts"
-private const val KEY_ENDS = "com.malgra.reliquary.segmentEnds"
-private const val KEY_CATEGORIES = "com.malgra.reliquary.segmentCategories"
-
-/** Adds [segments] to a media item's request extras, which reach the playback service. */
-internal fun Bundle.putSponsorSegments(segments: List<SponsorSegment>): Bundle = apply {
-    putLongArray(KEY_STARTS, segments.map { it.start.inWholeMilliseconds }.toLongArray())
-    putLongArray(KEY_ENDS, segments.map { it.end.inWholeMilliseconds }.toLongArray())
-    putStringArrayList(KEY_CATEGORIES, ArrayList(segments.map { it.category }))
-}
-
-/** The segments a bundle made by [putSponsorSegments] holds. */
-internal fun Bundle.sponsorSegments(): List<SponsorSegment> {
-    val starts = getLongArray(KEY_STARTS) ?: return emptyList()
-    val ends = getLongArray(KEY_ENDS) ?: return emptyList()
-    val categories = getStringArrayList(KEY_CATEGORIES).orEmpty()
-    return starts.indices.mapNotNull { i ->
-        val end = ends.getOrNull(i) ?: return@mapNotNull null
-        SponsorSegment(starts[i].milliseconds, end.milliseconds, categories.getOrElse(i) { "" })
-    }
-}
-
-/** The segments an item was sent with. */
-internal fun MediaItem.sponsorSegments(): List<SponsorSegment> = requestMetadata.extras?.sponsorSegments().orEmpty()
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * When to skip. A segment is skipped when playback reaches it; one the user
@@ -43,19 +18,35 @@ internal fun MediaItem.sponsorSegments(): List<SponsorSegment> = requestMetadata
 internal class SegmentSkipRules {
     private val watching = mutableSetOf<Int>()
 
+    /**
+     * Segments just skipped. A seek may land a little short of the end (desktop
+     * players seek to a keyframe), and that mustn't trigger the skip again.
+     */
+    private val skipped = mutableSetOf<Int>()
+
     /** The user moved to [positionMs]: they mean to watch any segment they landed in. */
     fun onUserSeek(segments: List<SponsorSegment>, positionMs: Long) {
         segments.forEachIndexed { i, segment -> if (segment.contains(positionMs)) watching += i }
     }
 
+    /** [segment] was skipped. */
+    fun onSkipped(segments: List<SponsorSegment>, segment: SponsorSegment) {
+        val i = segments.indexOf(segment)
+        if (i >= 0) skipped += i
+    }
+
     /** A new video: nothing chosen yet. */
-    fun reset() = watching.clear()
+    fun reset() {
+        watching.clear()
+        skipped.clear()
+    }
 
     /** The segment to skip at [positionMs], if any. */
     fun segmentToSkip(segments: List<SponsorSegment>, positionMs: Long): SponsorSegment? {
         watching.retainAll { i -> segments.getOrNull(i)?.contains(positionMs) == true }
+        skipped.retainAll { i -> segments.getOrNull(i)?.contains(positionMs) == true }
         return segments.withIndex().firstOrNull { (i, segment) ->
-            i !in watching && positionMs >= segment.start.inWholeMilliseconds &&
+            i !in watching && i !in skipped && positionMs >= segment.start.inWholeMilliseconds &&
                 positionMs < segment.end.inWholeMilliseconds - END_MARGIN_MS
         }?.value
     }
@@ -70,78 +61,71 @@ internal class SegmentSkipRules {
 }
 
 /**
- * Skips SponsorBlock segments in the playing video while [enabled] says so,
- * from the playback service so it works with the screen off too.
+ * Skips SponsorBlock segments in the playing video while [enabled] says so.
+ * On Android it runs in the playback service, so it works with the screen off too.
  */
 internal class SponsorSkipper(
-    private val player: Player,
+    private val player: VideoPlayer,
     private val enabled: () -> Boolean,
+    main: CoroutineDispatcher = Dispatchers.Main,
     private val onSkipped: (SponsorSegment) -> Unit,
-) : Player.Listener {
+) : VideoPlayerListener {
 
-    private val handler = Handler(Looper.getMainLooper())
+    private val ticks = CoroutineScope(SupervisorJob() + main)
+    private var tick: Job? = null
     private val rules = SegmentSkipRules()
-    private var segments: List<SponsorSegment> = player.currentMediaItem?.sponsorSegments().orEmpty()
-    private var skipping = false
+    private var segments: List<SponsorSegment> = player.currentItem?.sponsorSegments.orEmpty()
 
-    private val tick = object : Runnable {
-        override fun run() {
-            check()
-            if (player.isPlaying) handler.postDelayed(this, CHECK_INTERVAL_MS)
-        }
-    }
+    /** Our own skip's seek is still to be reported (media3 reports it within seekTo, desktop later). */
+    private var skipSeekPending = false
 
     init {
         player.addListener(this)
     }
 
-    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        segments = mediaItem?.sponsorSegments().orEmpty()
+    override fun onItemTransition(item: PlayerItem?, reason: ItemTransitionReason) {
+        segments = item?.sponsorSegments.orEmpty()
         rules.reset()
+        skipSeekPending = false
     }
 
-    override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+    override fun onPositionJump(old: PlayerPosition, new: PlayerPosition, reason: PositionJumpReason) {
+        if (reason != PositionJumpReason.Seek) return
         // Our own skip isn't the user choosing where to watch (it may land at the start of the next segment).
-        if (reason == Player.DISCONTINUITY_REASON_SEEK && !skipping) rules.onUserSeek(segments, newPosition.positionMs)
+        if (skipSeekPending) {
+            skipSeekPending = false
+            return
+        }
+        rules.onUserSeek(segments, new.positionMs)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
-        handler.removeCallbacks(tick)
-        if (isPlaying) handler.post(tick)
+        tick?.cancel()
+        if (isPlaying) {
+            tick = ticks.launch {
+                while (isActive && player.isPlaying) {
+                    check()
+                    delay(CHECK_INTERVAL_MS)
+                }
+            }
+        }
     }
 
     private fun check() {
         if (segments.isEmpty() || !enabled()) return
-        val segment = rules.segmentToSkip(segments, player.currentPosition) ?: return
-        skipping = true
-        try {
-            player.seekTo(segment.end.inWholeMilliseconds)
-        } finally {
-            skipping = false
-        }
+        val segment = rules.segmentToSkip(segments, player.positionMs) ?: return
+        rules.onSkipped(segments, segment)
+        skipSeekPending = true
+        player.seekTo(segment.end.inWholeMilliseconds)
         onSkipped(segment)
     }
 
     fun release() {
-        handler.removeCallbacks(tick)
+        ticks.cancel()
         player.removeListener(this)
     }
 
     private companion object {
         const val CHECK_INTERVAL_MS = 250L
-    }
-}
-
-/** Skips the service made, passed on to the player screen for its Undo snackbar. */
-internal object SponsorSkips {
-    const val ACTION = "com.malgra.reliquary.SPONSOR_SKIPPED"
-
-    private val skips = MutableSharedFlow<SponsorSegment>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val events: SharedFlow<SponsorSegment> = skips
-
-    fun toBundle(segment: SponsorSegment): Bundle = Bundle().putSponsorSegments(listOf(segment))
-
-    fun received(args: Bundle) {
-        args.sponsorSegments().firstOrNull()?.let { skips.tryEmit(it) }
     }
 }

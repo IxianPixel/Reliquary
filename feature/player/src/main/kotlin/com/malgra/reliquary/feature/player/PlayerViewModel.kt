@@ -1,12 +1,7 @@
 package com.malgra.reliquary.feature.player
 
-import android.net.Uri
-import android.os.Bundle
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.LoadResult
@@ -23,7 +18,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** What to load into the player: the queue, which item to start with, and where in it. */
-data class PlaybackRequest(val items: List<MediaItem>, val startIndex: Int, val startPositionMs: Long)
+data class PlaybackRequest(val items: List<PlayerItem>, val startIndex: Int, val startPositionMs: Long)
 
 /** A video's comments as the screen sees them: nothing shown until some have loaded. */
 sealed interface CommentsState {
@@ -153,7 +147,7 @@ class PlayerViewModel @AssistedInject constructor(
             val list = videos.playlistQueue(playlistId)
             val index = list.indexOfFirst { it.id == videoId }
             if (index >= 0) {
-                val items = list.map { it.toMediaItem(downloads.localFile(it.id)?.let(Uri::fromFile), playlistId, downloads.localSubtitles(it.id)) }
+                val items = list.map { it.toPlayerItem(downloads.localFile(it.id), playlistId, downloads.localSubtitles(it.id)) }
                 return PlaybackRequest(items, index, start)
             }
         }
@@ -162,8 +156,8 @@ class PlayerViewModel @AssistedInject constructor(
         val video = withTimeoutOrNull(LOAD_TIMEOUT_MS) { videos.get(videoId) ?: this@PlayerViewModel.video.filterNotNull().first() }
             ?: return null
         // A downloaded copy plays without the server.
-        val local = downloads.localFile(videoId)?.let(Uri::fromFile)
-        return PlaybackRequest(listOf(video.toMediaItem(local, null, downloads.localSubtitles(videoId))), 0, start)
+        val local = downloads.localFile(videoId)
+        return PlaybackRequest(listOf(video.toPlayerItem(local, null, downloads.localSubtitles(videoId))), 0, start)
     }
 
     /** The subtitle language to start with; null means off. */
@@ -195,53 +189,4 @@ class PlayerViewModel @AssistedInject constructor(
         /** How long playback waits for fresh details before using the cached ones. */
         const val REFRESH_WAIT_MS = 3_000L
     }
-}
-
-private const val EXTRA_PLAYLIST_ID = "com.malgra.reliquary.playlistId"
-
-/** The playlist this item was queued from, if any. */
-internal val MediaItem.playlistId: String?
-    get() = mediaMetadata.extras?.getString(EXTRA_PLAYLIST_ID)
-
-/**
- * [localFile] and [localSubtitles] (by track key) replace the server's copies
- * when the video is downloaded.
- */
-internal fun Video.toMediaItem(
-    localFile: Uri? = null,
-    playlistId: String? = null,
-    localSubtitles: Map<String, File> = emptyMap(),
-): MediaItem {
-    val uri: Uri = localFile ?: mediaUrl.toUri()
-    val tracks = subtitles.map { subtitle ->
-        SubtitleTrack(
-            id = subtitle.key,
-            uri = localSubtitles[subtitle.key]?.let(Uri::fromFile) ?: subtitle.url.toUri(),
-            language = subtitle.language,
-            label = subtitle.name,
-        )
-    }
-    return MediaItem.Builder()
-        .setMediaId(id)
-        .setUri(uri)
-        .setSubtitleConfigurations(tracks.map { it.toConfiguration() })
-        // The URI, subtitles and SponsorBlock segments don't survive the trip to the service as they are;
-        // PlaybackService restores them from here.
-        .setRequestMetadata(
-            MediaItem.RequestMetadata.Builder()
-                .setMediaUri(uri)
-                .setExtras(tracks.toBundle().putSponsorSegments(sponsorSegments))
-                .build(),
-        )
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(title)
-                .setArtist(channelName)
-                .setArtworkUri(thumbnailUrl?.toUri())
-                .setIsPlayable(true)
-                .setIsBrowsable(false)
-                .apply { if (playlistId != null) setExtras(Bundle().apply { putString(EXTRA_PLAYLIST_ID, playlistId) }) }
-                .build(),
-        )
-        .build()
 }

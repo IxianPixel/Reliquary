@@ -450,7 +450,7 @@ private fun rememberPlaybackLoad(viewModel: PlayerViewModel, request: PlayReques
                 load.unavailable = true
                 return@LaunchedEffect
             }
-            player.setMediaItems(playback.items, playback.startIndex, playback.startPositionMs)
+            player.setMediaItems(playback.items.map { it.toMediaItem() }, playback.startIndex, playback.startPositionMs)
             // Start with the subtitles last chosen (off unless one was picked).
             val language = viewModel.subtitleLanguage()
             if (language == null) player.disableSubtitles() else player.selectSubtitle(null, language)

@@ -68,7 +68,8 @@ class PlaybackService : MediaSessionService() {
             .setSeekBackIncrementMs(SEEK_INCREMENT_MS)
             .setSeekForwardIncrementMs(SEEK_INCREMENT_MS)
             .build()
-        tracker = ProgressTracker(player, progress, appScope)
+        val videoPlayer = Media3VideoPlayer(player)
+        tracker = ProgressTracker(videoPlayer, progress.asPlaybackProgress(), appScope)
 
         val builder = MediaSession.Builder(this, player)
             .setCallback(ResolveMediaUris)
@@ -82,7 +83,7 @@ class PlaybackService : MediaSessionService() {
         }
         session = builder.build()
         serviceScope.launch { settings.skipSponsorSegments.collect { skipSponsors = it } }
-        skipper = SponsorSkipper(player, enabled = { skipSponsors }) { segment ->
+        skipper = SponsorSkipper(videoPlayer, enabled = { skipSponsors }) { segment ->
             session?.broadcastCustomCommand(SessionCommand(SponsorSkips.ACTION, Bundle.EMPTY), SponsorSkips.toBundle(segment))
         }
         setMediaNotificationProvider(

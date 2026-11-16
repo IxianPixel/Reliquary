@@ -49,4 +49,14 @@ class SegmentSkipRulesTest {
         rules.reset()
         assertEquals(sponsor, rules.segmentToSkip(segments, 20_000))
     }
+
+    @Test fun aSkippedSegmentIsNotSkippedAgainWhileInsideIt() {
+        val rules = SegmentSkipRules()
+        rules.onSkipped(segments, sponsor)
+        assertNull(rules.segmentToSkip(segments, 37_000)) // the seek landed on a keyframe short of the end
+
+        // Back before it, then playback reaches it again: skipped as usual.
+        assertNull(rules.segmentToSkip(segments, 5_000))
+        assertEquals(sponsor, rules.segmentToSkip(segments, 10_200))
+    }
 }

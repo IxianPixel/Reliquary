@@ -10,4 +10,6 @@ dependencies {
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.ui.compose.material3)
     implementation(libs.androidx.activity.compose)
+
+    testImplementation(libs.kotlinx.coroutines.test)
 }

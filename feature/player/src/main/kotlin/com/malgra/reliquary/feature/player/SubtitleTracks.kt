@@ -34,8 +34,8 @@ internal fun List<SubtitleTrack>.toBundle(): Bundle = Bundle().apply {
     putStringArrayList(KEY_LABELS, ArrayList(map { it.label }))
 }
 
-/** The subtitle configurations an item was sent with, from its request metadata. */
-internal fun MediaItem.subtitleConfigurationsFromRequest(): List<MediaItem.SubtitleConfiguration> {
+/** The subtitle tracks an item was sent with, from its request metadata. */
+internal fun MediaItem.subtitleTracksFromRequest(): List<SubtitleTrack> {
     val extras = requestMetadata.extras ?: return emptyList()
     val ids = extras.getStringArrayList(KEY_IDS) ?: return emptyList()
     val uris = extras.getStringArrayList(KEY_URIS).orEmpty()
@@ -43,9 +43,13 @@ internal fun MediaItem.subtitleConfigurationsFromRequest(): List<MediaItem.Subti
     val labels = extras.getStringArrayList(KEY_LABELS).orEmpty()
     return ids.indices.mapNotNull { i ->
         val uri = uris.getOrNull(i) ?: return@mapNotNull null
-        SubtitleTrack(ids[i], uri.toUri(), languages.getOrElse(i) { "" }, labels.getOrElse(i) { "" }).toConfiguration()
+        SubtitleTrack(ids[i], uri.toUri(), languages.getOrElse(i) { "" }, labels.getOrElse(i) { "" })
     }
 }
+
+/** The subtitle configurations an item was sent with, from its request metadata. */
+internal fun MediaItem.subtitleConfigurationsFromRequest(): List<MediaItem.SubtitleConfiguration> =
+    subtitleTracksFromRequest().map { it.toConfiguration() }
 
 /** The key of the subtitle track playing now, or null when subtitles are off. */
 internal fun Player.selectedSubtitleKey(): String? =
