@@ -47,8 +47,8 @@ import com.malgra.reliquary.feature.home.HomeScreen
 import com.malgra.reliquary.feature.onboarding.OnboardingRoute
 import com.malgra.reliquary.feature.player.PlayerSheet
 import com.malgra.reliquary.feature.player.isPlayerSheetShowing
-import com.malgra.reliquary.feature.player.rememberMediaController
 import com.malgra.reliquary.feature.player.rememberPlayerSheetState
+import com.malgra.reliquary.feature.player.rememberVideoPlayer
 import com.malgra.reliquary.feature.playlists.PlaylistScreen
 import com.malgra.reliquary.feature.playlists.PlaylistsScreen
 import com.malgra.reliquary.feature.queue.QueueScreen
@@ -90,9 +90,9 @@ private fun MainShell(viewModel: MainViewModel) {
     // The tab whose stack is showing: the nearest top-level key from the top of the stack.
     val selectedTab = backStack.lastOrNull { key -> TopLevelDestination.entries.any { it.key == key } }
     // One connection to the playback service, and the player sheet over everything.
-    val controller = rememberMediaController()
+    val player = rememberVideoPlayer()
     val playerSheet = rememberPlayerSheetState()
-    val sheetShowing = isPlayerSheetShowing(playerSheet, controller)
+    val sheetShowing = isPlayerSheetShowing(playerSheet, player)
     val videoActions: VideoActionsViewModel = hiltViewModel()
     val density = LocalDensity.current
     // Space the navigation takes at the bottom (a bar, or just the gesture area with a rail).
@@ -194,7 +194,7 @@ private fun MainShell(viewModel: MainViewModel) {
         CompositionLocalProvider(LocalVideoActions provides videoActions) {
             PlayerSheet(
                 state = playerSheet,
-                controller = controller,
+                player = player,
                 bottomReserve = bottomReserve,
                 onOpenChannel = { backStack.add(ChannelDetail(it)) },
             )
