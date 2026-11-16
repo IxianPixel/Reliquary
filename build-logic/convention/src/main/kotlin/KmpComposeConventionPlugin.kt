@@ -4,6 +4,7 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.compose.ComposeExtension
+import org.jetbrains.compose.ComposePlugin
 import org.jetbrains.compose.resources.ResourcesExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
@@ -40,6 +41,10 @@ class KmpComposeConventionPlugin : Plugin<Project> {
                 implementation(libs.lib("cmp-material3"))
                 implementation(libs.lib("cmp-components-resources"))
                 implementation(libs.lib("cmp-ui-tooling-preview"))
+            }
+            // Compose resources ask Skiko for the system theme, so desktop tests need the native runtime.
+            sourceSets.getByName("desktopTest").dependencies {
+                implementation(ComposePlugin.DesktopDependencies.currentOs)
             }
             sourceSets.getByName("androidMain").dependencies {
                 implementation(project.dependencies.platform(libs.lib("androidx-compose-bom")))
