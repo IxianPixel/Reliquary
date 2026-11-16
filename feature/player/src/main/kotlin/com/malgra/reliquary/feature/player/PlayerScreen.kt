@@ -61,7 +61,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -107,7 +106,10 @@ import com.malgra.reliquary.core.ui.metaLine
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import androidx.annotation.OptIn as UnstableOptIn
-import com.malgra.reliquary.core.ui.R as UiR
+import com.malgra.reliquary.core.ui.resources.Res as UiRes
+import com.malgra.reliquary.core.ui.resources.ui_subscribers
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource as uiString
 
 /** Hides the status and navigation bars (swipe to peek) while [hidden]. */
 @Composable
@@ -806,7 +808,7 @@ private fun ChannelRow(video: Video, channel: Channel?, onClick: () -> Unit) {
             Text(video.channelName, style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp))
             channel?.subscriberCount?.takeIf { it > 0 }?.let {
                 Text(
-                    stringResource(UiR.string.ui_subscribers, compactCount(it)),
+                    uiString(UiRes.string.ui_subscribers, compactCount(it)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

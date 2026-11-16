@@ -1,9 +1,9 @@
 package com.malgra.reliquary.navigation
 
-import androidx.annotation.DrawableRes
 import androidx.navigation3.runtime.NavKey
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import kotlinx.serialization.Serializable
+import org.jetbrains.compose.resources.DrawableResource
 
 @Serializable data object Home : NavKey
 @Serializable data object Channels : NavKey
@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlaylistDetail(val playlistId: String) : NavKey
 
 /** The tabs in the navigation bar (phones) or rail (tablets and foldables). Queue is shown to admins only. */
-enum class TopLevelDestination(val key: NavKey, val label: String, @DrawableRes val icon: Int) {
+enum class TopLevelDestination(val key: NavKey, val label: String, val icon: DrawableResource) {
     HOME(Home, "Home", ReliquaryIcons.Home),
     CHANNELS(Channels, "Channels", ReliquaryIcons.Channels),
     PLAYLISTS(Playlists, "Playlists", ReliquaryIcons.Playlists),

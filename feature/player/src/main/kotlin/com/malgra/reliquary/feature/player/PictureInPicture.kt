@@ -29,7 +29,7 @@ import androidx.core.util.Consumer
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
-import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
+import com.malgra.reliquary.core.designsystem.icon.RemoteActionIcons
 
 private const val ACTION_PIP_CONTROL = "com.malgra.reliquary.PIP_CONTROL"
 private const val EXTRA_CONTROL = "control"
@@ -143,13 +143,13 @@ private fun pictureInPictureParams(
         .setAspectRatio(aspectRatio(videoSize))
         .setActions(
             listOf(
-                remoteAction(context, CONTROL_BACK, ReliquaryIcons.Replay10, labels.back),
+                remoteAction(context, CONTROL_BACK, RemoteActionIcons.Replay10, labels.back),
                 if (playing) {
-                    remoteAction(context, CONTROL_PLAY_PAUSE, ReliquaryIcons.Pause, labels.pause)
+                    remoteAction(context, CONTROL_PLAY_PAUSE, RemoteActionIcons.Pause, labels.pause)
                 } else {
-                    remoteAction(context, CONTROL_PLAY_PAUSE, ReliquaryIcons.Play, labels.play)
+                    remoteAction(context, CONTROL_PLAY_PAUSE, RemoteActionIcons.Play, labels.play)
                 },
-                remoteAction(context, CONTROL_FORWARD, ReliquaryIcons.Forward10, labels.forward),
+                remoteAction(context, CONTROL_FORWARD, RemoteActionIcons.Forward10, labels.forward),
             ),
         )
     sourceBounds?.let(builder::setSourceRectHint)

@@ -56,7 +56,6 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -84,6 +83,7 @@ import com.malgra.reliquary.core.ui.metaLine
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
+import org.jetbrains.compose.resources.painterResource
 
 /** Where the player sheet rests. Dismissed is just below the screen; settling there stops playback. */
 enum class SheetPosition { Expanded, Collapsed, Dismissed }

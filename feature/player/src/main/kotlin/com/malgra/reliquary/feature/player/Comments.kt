@@ -27,7 +27,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -40,6 +39,7 @@ import com.malgra.reliquary.core.model.Comment
 import com.malgra.reliquary.core.ui.compactCount
 import com.malgra.reliquary.core.ui.formatDate
 import com.malgra.reliquary.core.ui.metaLine
+import org.jetbrains.compose.resources.painterResource
 
 /** "Comments · 128" with the first comment as a taste; opens [onOpen]. */
 @Composable

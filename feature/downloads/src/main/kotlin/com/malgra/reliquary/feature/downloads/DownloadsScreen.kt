@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -58,6 +57,7 @@ import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoThumbnail
 import com.malgra.reliquary.core.ui.keepOfflineSummary
 import com.malgra.reliquary.core.ui.metaLine
+import org.jetbrains.compose.resources.painterResource
 import kotlin.math.ceil
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes

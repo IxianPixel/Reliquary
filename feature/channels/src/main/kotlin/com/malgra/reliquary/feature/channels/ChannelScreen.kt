@@ -51,7 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -77,7 +76,7 @@ import com.malgra.reliquary.core.ui.EmptyPanel
 import com.malgra.reliquary.core.ui.KeepOfflineButton
 import com.malgra.reliquary.core.ui.KeepOfflineSheet
 import com.malgra.reliquary.core.ui.PlaylistListItem
-import com.malgra.reliquary.core.ui.R as UiR
+import com.malgra.reliquary.core.ui.resources.Res as UiRes
 import com.malgra.reliquary.core.ui.ServerImage
 import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoListItem
@@ -86,7 +85,11 @@ import com.malgra.reliquary.core.ui.isRefreshing
 import com.malgra.reliquary.core.ui.metaLine
 import com.malgra.reliquary.core.ui.pagingFooter
 import com.malgra.reliquary.core.ui.pagingHeader
+import com.malgra.reliquary.core.ui.resources.ui_subscribed
+import com.malgra.reliquary.core.ui.resources.ui_subscribers
 import com.malgra.reliquary.core.ui.videoCountText
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -332,8 +335,8 @@ private fun ChannelHeader(
                 val meta = metaLine(
                     videoCount?.let { videoCountText(it) },
                     channel?.subscriberCount?.takeIf { it > 0 }
-                        ?.let { stringResource(UiR.string.ui_subscribers, compactCount(it)) },
-                    if (channel?.subscribed == true) stringResource(UiR.string.ui_subscribed) else null,
+                        ?.let { stringResource(UiRes.string.ui_subscribers, compactCount(it)) },
+                    if (channel?.subscribed == true) stringResource(UiRes.string.ui_subscribed) else null,
                 )
                 if (meta.isNotEmpty()) {
                     Text(

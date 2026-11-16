@@ -48,7 +48,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -69,6 +68,7 @@ import com.malgra.reliquary.core.ui.StatusBarScrim
 import com.malgra.reliquary.core.ui.VideoThumbnail
 import com.malgra.reliquary.core.ui.formatDate
 import com.malgra.reliquary.core.ui.metaLine
+import org.jetbrains.compose.resources.painterResource
 
 /** The server's download queue (#23): what TA will fetch next, for admins. */
 @OptIn(ExperimentalMaterial3Api::class)

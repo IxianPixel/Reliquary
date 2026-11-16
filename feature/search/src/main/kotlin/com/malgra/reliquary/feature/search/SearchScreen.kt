@@ -28,7 +28,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ import com.malgra.reliquary.core.ui.LoadingPanel
 import com.malgra.reliquary.core.ui.PlaylistListItem
 import com.malgra.reliquary.core.ui.SectionHeader
 import com.malgra.reliquary.core.ui.VideoListItem
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
 fun SearchScreen(

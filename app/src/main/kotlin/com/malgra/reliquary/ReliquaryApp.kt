@@ -26,7 +26,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -65,6 +64,7 @@ import com.malgra.reliquary.navigation.Queue
 import com.malgra.reliquary.navigation.Search
 import com.malgra.reliquary.navigation.Settings
 import com.malgra.reliquary.navigation.TopLevelDestination
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
 fun ReliquaryApp(viewModel: MainViewModel = hiltViewModel()) {

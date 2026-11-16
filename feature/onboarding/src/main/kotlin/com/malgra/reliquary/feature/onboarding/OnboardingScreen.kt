@@ -33,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -53,6 +52,7 @@ import com.malgra.reliquary.core.network.ServerUrl
 import com.malgra.reliquary.core.ui.LocalNetworkAccess
 import com.malgra.reliquary.core.ui.LocalNetworkAccessCard
 import com.malgra.reliquary.core.ui.rememberLocalNetworkAccess
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
 fun OnboardingRoute(viewModel: OnboardingViewModel = hiltViewModel()) {

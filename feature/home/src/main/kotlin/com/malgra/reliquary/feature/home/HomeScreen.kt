@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -51,6 +50,7 @@ import com.malgra.reliquary.core.ui.VideoListItem
 import com.malgra.reliquary.core.ui.isRefreshing
 import com.malgra.reliquary.core.ui.pagingFooter
 import com.malgra.reliquary.core.ui.pagingHeader
+import org.jetbrains.compose.resources.painterResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
