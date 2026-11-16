@@ -1,6 +1,8 @@
+import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 /**
@@ -14,6 +16,9 @@ class KmpHiltConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.google.devtools.ksp")
 
         extensions.configure<KotlinMultiplatformExtension> {
+            // The Hilt compiler writes Java (factories, aggregated deps), which the
+            // multiplatform Android target only compiles with Java enabled.
+            targets.withType<KotlinMultiplatformAndroidLibraryTarget>().configureEach { withJava() }
             sourceSets.getByName("commonMain").dependencies {
                 implementation(libs.lib("javax-inject"))
             }
