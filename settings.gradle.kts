@@ -24,6 +24,7 @@ dependencyResolutionManagement {
 rootProject.name = "Reliquary"
 
 include(":app")
+include(":desktop")
 
 include(":core:model")
 include(":core:network")
@@ -33,6 +34,7 @@ include(":core:sync")
 include(":core:download")
 include(":core:designsystem")
 include(":core:ui")
+include(":core:shell")
 
 include(":feature:onboarding")
 include(":feature:home")

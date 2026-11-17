@@ -1,4 +1,4 @@
-package com.malgra.reliquary
+package com.malgra.reliquary.core.shell
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,13 +6,11 @@ import com.malgra.reliquary.core.data.progress.ProgressRepository
 import com.malgra.reliquary.core.data.session.AccountRepository
 import com.malgra.reliquary.core.data.session.SessionRepository
 import com.malgra.reliquary.core.data.session.SessionState
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-@HiltViewModel
 class MainViewModel @Inject constructor(
     sessions: SessionRepository,
     progress: ProgressRepository,

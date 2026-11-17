@@ -17,6 +17,9 @@
   subscriptions, download everything or one video next, ignore or remove
   videos, add a video, channel or playlist by link, and follow the server's
   progress. Downloads stays for videos saved on the phone. (#23)
+- **Desktop app (in progress).** Reliquary now also runs on macOS, Windows and
+  Linux, sharing its data, sync and screens with the phone app. So far you can
+  sign in and browse your library; playing videos comes next. (#2)
 
 ## v0.1.0
 

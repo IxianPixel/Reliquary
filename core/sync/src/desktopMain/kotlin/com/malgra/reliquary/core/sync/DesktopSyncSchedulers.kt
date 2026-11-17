@@ -9,6 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -62,7 +63,9 @@ class DesktopLibrarySyncScheduler internal constructor(
     nowBackoff: Duration = 30.seconds,
 ) : LibrarySyncScheduler {
 
-    @Inject constructor(@ApplicationScope scope: CoroutineScope, sync: LibrarySync) : this(scope, sync::run)
+    // A Provider because LibrarySync needs KeepOfflineRepository, which needs this scheduler.
+    @Inject constructor(@ApplicationScope scope: CoroutineScope, sync: Provider<LibrarySync>) :
+        this(scope, { sync.get().run() })
 
     private var periodic: Job? = null
     private val now = ReplacingJob(scope, nowBackoff)

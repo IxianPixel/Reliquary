@@ -123,6 +123,8 @@ cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.
 cmp-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "cmpLifecycle" }
 cmp-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "cmpLifecycle" }
 cmp-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "cmpNavigation3" }
+cmp-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "cmpLifecycle" }
+cmp-material3-adaptive-navigation-suite = { module = "org.jetbrains.compose.material3:material3-adaptive-navigation-suite", version.ref = "cmpMaterial3" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
