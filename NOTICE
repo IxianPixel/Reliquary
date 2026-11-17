@@ -1,0 +1,18 @@
+Reliquary
+Copyright the Reliquary authors. Licensed under the GNU General Public License,
+version 3 or later (see LICENSE).
+
+The desktop app includes or uses the following third-party software.
+
+libVLC and VLC plugins (VideoLAN)
+  Bundled with the macOS and Windows desktop apps; used from the system on Linux.
+  libVLC and libvlccore: GNU Lesser General Public License, version 2.1 or later.
+  Plugins: GNU LGPL 2.1 or later, or GNU GPL 2.0 or later.
+  The version is pinned in desktop/vlc.properties. Its source code is the
+  matching vlc-<version>.tar.xz from https://download.videolan.org/pub/videolan/vlc/,
+  attached to each GitHub release that ships a desktop build. The licence texts
+  are in desktop/vlc-licences/ and in the app's vlc folder.
+
+vlcj (Caprica Software)
+  GNU General Public License, version 3 or later.
+  https://github.com/caprica/vlcj

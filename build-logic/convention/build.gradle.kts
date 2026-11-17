@@ -20,6 +20,7 @@ dependencies {
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.compose.gradlePlugin)
     compileOnly(libs.ksp.gradlePlugin)
+    compileOnly(libs.composeMultiplatform.gradlePlugin)
 }
 
 gradlePlugin {
@@ -47,6 +48,22 @@ gradlePlugin {
         register("jvmLibrary") {
             id = libs.plugins.reliquary.jvm.library.get().pluginId
             implementationClass = "JvmLibraryConventionPlugin"
+        }
+        register("kmpLibrary") {
+            id = libs.plugins.reliquary.kmp.library.get().pluginId
+            implementationClass = "KmpLibraryConventionPlugin"
+        }
+        register("kmpCompose") {
+            id = libs.plugins.reliquary.kmp.compose.get().pluginId
+            implementationClass = "KmpComposeConventionPlugin"
+        }
+        register("kmpHilt") {
+            id = libs.plugins.reliquary.kmp.hilt.get().pluginId
+            implementationClass = "KmpHiltConventionPlugin"
+        }
+        register("kmpFeature") {
+            id = libs.plugins.reliquary.kmp.feature.get().pluginId
+            implementationClass = "KmpFeatureConventionPlugin"
         }
     }
 }

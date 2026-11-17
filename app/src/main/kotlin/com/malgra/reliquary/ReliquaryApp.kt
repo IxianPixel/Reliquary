@@ -26,10 +26,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
@@ -39,8 +37,21 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.malgra.reliquary.core.data.session.SessionState
+import com.malgra.reliquary.core.shell.ChannelDetail
+import com.malgra.reliquary.core.shell.Channels
+import com.malgra.reliquary.core.shell.Downloads
+import com.malgra.reliquary.core.shell.Home
+import com.malgra.reliquary.core.shell.MainViewModel
+import com.malgra.reliquary.core.shell.PlaylistDetail
+import com.malgra.reliquary.core.shell.Playlists
+import com.malgra.reliquary.core.shell.Queue
+import com.malgra.reliquary.core.shell.Search
+import com.malgra.reliquary.core.shell.Settings
+import com.malgra.reliquary.core.shell.TopLevelDestination
+import com.malgra.reliquary.core.shell.VideoActionsViewModel
 import com.malgra.reliquary.core.ui.LocalVideoActions
 import com.malgra.reliquary.core.ui.rememberLocalNetworkAccess
+import com.malgra.reliquary.core.ui.viewmodel.injectedViewModel
 import com.malgra.reliquary.feature.channels.ChannelScreen
 import com.malgra.reliquary.feature.channels.ChannelsScreen
 import com.malgra.reliquary.feature.downloads.DownloadsScreen
@@ -48,26 +59,17 @@ import com.malgra.reliquary.feature.home.HomeScreen
 import com.malgra.reliquary.feature.onboarding.OnboardingRoute
 import com.malgra.reliquary.feature.player.PlayerSheet
 import com.malgra.reliquary.feature.player.isPlayerSheetShowing
-import com.malgra.reliquary.feature.player.rememberMediaController
 import com.malgra.reliquary.feature.player.rememberPlayerSheetState
+import com.malgra.reliquary.feature.player.rememberVideoPlayer
 import com.malgra.reliquary.feature.playlists.PlaylistScreen
 import com.malgra.reliquary.feature.playlists.PlaylistsScreen
 import com.malgra.reliquary.feature.queue.QueueScreen
 import com.malgra.reliquary.feature.search.SearchScreen
 import com.malgra.reliquary.feature.settings.SettingsScreen
-import com.malgra.reliquary.navigation.ChannelDetail
-import com.malgra.reliquary.navigation.Channels
-import com.malgra.reliquary.navigation.Downloads
-import com.malgra.reliquary.navigation.Home
-import com.malgra.reliquary.navigation.PlaylistDetail
-import com.malgra.reliquary.navigation.Playlists
-import com.malgra.reliquary.navigation.Queue
-import com.malgra.reliquary.navigation.Search
-import com.malgra.reliquary.navigation.Settings
-import com.malgra.reliquary.navigation.TopLevelDestination
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
-fun ReliquaryApp(viewModel: MainViewModel = hiltViewModel()) {
+fun ReliquaryApp(viewModel: MainViewModel = injectedViewModel()) {
     val session by viewModel.session.collectAsStateWithLifecycle()
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
@@ -90,10 +92,10 @@ private fun MainShell(viewModel: MainViewModel) {
     // The tab whose stack is showing: the nearest top-level key from the top of the stack.
     val selectedTab = backStack.lastOrNull { key -> TopLevelDestination.entries.any { it.key == key } }
     // One connection to the playback service, and the player sheet over everything.
-    val controller = rememberMediaController()
+    val player = rememberVideoPlayer()
     val playerSheet = rememberPlayerSheetState()
-    val sheetShowing = isPlayerSheetShowing(playerSheet, controller)
-    val videoActions: VideoActionsViewModel = hiltViewModel()
+    val sheetShowing = isPlayerSheetShowing(playerSheet, player)
+    val videoActions: VideoActionsViewModel = injectedViewModel()
     val density = LocalDensity.current
     // Space the navigation takes at the bottom (a bar, or just the gesture area with a rail).
     var bottomReserve by remember { mutableStateOf(0.dp) }
@@ -194,7 +196,7 @@ private fun MainShell(viewModel: MainViewModel) {
         CompositionLocalProvider(LocalVideoActions provides videoActions) {
             PlayerSheet(
                 state = playerSheet,
-                controller = controller,
+                player = player,
                 bottomReserve = bottomReserve,
                 onOpenChannel = { backStack.add(ChannelDetail(it)) },
             )
