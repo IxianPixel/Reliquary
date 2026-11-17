@@ -10,6 +10,7 @@ import com.malgra.reliquary.feature.channels.ChannelsViewModel
 import com.malgra.reliquary.feature.downloads.DownloadsViewModel
 import com.malgra.reliquary.feature.home.HomeViewModel
 import com.malgra.reliquary.feature.onboarding.OnboardingViewModel
+import com.malgra.reliquary.feature.player.PlayerViewModel
 import com.malgra.reliquary.feature.playlists.PlaylistViewModel
 import com.malgra.reliquary.feature.playlists.PlaylistsViewModel
 import com.malgra.reliquary.feature.queue.QueueViewModel
@@ -47,6 +48,7 @@ class DesktopViewModelGraph(private val app: AppGraph) : ViewModelGraph {
             ChannelViewModel.Factory::class -> ChannelViewModel.Factory(channels, videos, playlists, keepOffline, account)
             ChannelSettingsViewModel.Factory::class -> ChannelSettingsViewModel.Factory(channelSettings)
             PlaylistViewModel.Factory::class -> PlaylistViewModel.Factory(playlists, videos, keepOffline, account)
+            PlayerViewModel.Factory::class -> PlayerViewModel.Factory(videos, progress, downloads, channels, playlists, settings)
             else -> error("No factory binding for $type")
         } as F
     }

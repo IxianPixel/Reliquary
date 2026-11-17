@@ -4,9 +4,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import com.malgra.reliquary.core.network.log.Log
 import io.github.kdroidfilter.composemediaplayer.InitialPlayerState
 import io.github.kdroidfilter.composemediaplayer.VideoPlayerState
 import io.github.kdroidfilter.composemediaplayer.createVideoPlayerState
+import io.github.kdroidfilter.composemediaplayer.util.allowComposeMediaPlayerLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,14 +28,24 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * Its seeks land on a keyframe, so a seek is reported once it has settled, at
  * the position it reached. Everything runs on [scope]'s main (Swing) thread.
+ *
+ * The library reports no error when AVFoundation can't open a stream, so an
+ * item that doesn't start playing within a while is reported as one.
+ * RELIQUARY_PLAYER_DEBUG=1 in the environment logs every media request and
+ * the library's own messages.
  */
 internal class DesktopVideoPlayer(
     private val client: OkHttpClient,
     private val scope: CoroutineScope,
 ) : VideoPlayer {
 
-    internal val state: VideoPlayerState = createVideoPlayerState()
-    private val proxy = MediaProxy(client)
+    private val debug = System.getenv("RELIQUARY_PLAYER_DEBUG") != null
+
+    internal val state: VideoPlayerState = run {
+        if (debug) allowComposeMediaPlayerLogging = true
+        createVideoPlayerState()
+    }
+    private val proxy = MediaProxy(client, verbose = debug)
     private val listeners = CopyOnWriteArrayList<VideoPlayerListener>()
 
     private var queue = emptyList<PlayerItem>()
@@ -61,7 +73,7 @@ internal class DesktopVideoPlayer(
     internal var cues by mutableStateOf(emptyList<SubtitleCue>())
         private set
 
-    override var playWhenReady = false
+    override var playWhenReady by mutableStateOf(false)
         private set
 
     init {
@@ -70,12 +82,14 @@ internal class DesktopVideoPlayer(
         proxy.onUpstreamError = { token, status ->
             scope.launch {
                 if (token != proxyToken) return@launch
-                ownError = when (status) {
-                    401, 403 -> PlayerError.SignedOut
-                    404 -> PlayerError.NotFound
-                    null -> PlayerError.Network
-                    else -> PlayerError.Playback("HTTP $status")
-                }
+                fail(
+                    when (status) {
+                        401, 403 -> PlayerError.SignedOut
+                        404 -> PlayerError.NotFound
+                        null -> PlayerError.Network
+                        else -> PlayerError.Playback("HTTP $status")
+                    },
+                )
             }
         }
         // Turn the library's Compose state into callbacks.
@@ -211,6 +225,11 @@ internal class DesktopVideoPlayer(
 
     private fun here() = PlayerPosition(currentItem?.videoId, positionMs)
 
+    private fun fail(error: PlayerError, why: String = error.toString()) {
+        Log.w(TAG, "Can't play ${currentItem?.videoId}: $why")
+        ownError = error
+    }
+
     /** Loads the current item and starts it at [startMs], playing if [playWhenReady]. */
     private fun open(startMs: Long) {
         openJob?.cancel()
@@ -234,7 +253,8 @@ internal class DesktopVideoPlayer(
             val loaded = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
                 snapshotFlow { state.duration > 0 || state.error != null || ownError != null }.first { it }
             }
-            if (loaded == null) ownError = PlayerError.Network
+            if (loaded == null) fail(PlayerError.Network, "nothing loaded")
+            state.error?.let { Log.w(TAG, "The player failed to open the video: $it") }
             if (loaded == null || state.error != null || ownError != null) {
                 opening = null
                 return@launch
@@ -244,8 +264,22 @@ internal class DesktopVideoPlayer(
                 state.seekTo(start.toFloat() / durationMs * 1000f)
                 settle()
             }
+            // Until frames arrive the position reads 0 (even after that seek), so the start is reported meanwhile.
+            while (true) {
+                snapshotFlow { playWhenReady }.first { it }
+                state.play()
+                val started = withTimeoutOrNull(START_TIMEOUT_MS) {
+                    snapshotFlow { state.currentTime > 0.0 || !playWhenReady || state.error != null || ownError != null }.first { it }
+                }
+                if (ownError != null) break
+                if (started == null || state.error != null) {
+                    // AVFoundation can take the stream's index and still not play it ("Cannot Open"), with no error.
+                    fail(state.error?.let { PlayerError.Playback(it.toString()) } ?: PlayerError.Playback("didn't start"), "playback didn't start")
+                    break
+                }
+                if (state.currentTime > 0.0) break
+            }
             opening = null
-            if (playWhenReady) state.play()
         }
     }
 
@@ -322,8 +356,10 @@ internal class DesktopVideoPlayer(
     }
 
     private companion object {
+        const val TAG = "DesktopVideoPlayer"
         const val SEEK_INCREMENT_MS = 10_000L
         const val LOAD_TIMEOUT_MS = 20_000L
+        const val START_TIMEOUT_MS = 20_000L
         const val SEEK_TIMEOUT_MS = 3_000L
         const val SETTLE_MS = 250L
     }

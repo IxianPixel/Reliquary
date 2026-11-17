@@ -26,6 +26,19 @@ class SingleInstanceTest {
     }
 
     @Test
+    fun longFolderStillHandsOver() {
+        val dir = folder.root.toPath().resolve("a-folder-name-long-enough".repeat(5))
+        assertTrue(SingleInstance.socketPath(dir).toString().length <= 100)
+        val first = assertNotNull(SingleInstance.acquire(dir))
+        val shown = CountDownLatch(1)
+        first.onShowRequest = { shown.countDown() }
+
+        assertNull(SingleInstance.acquire(dir))
+        assertTrue(shown.await(5, TimeUnit.SECONDS))
+        first.close()
+    }
+
+    @Test
     fun lockIsFreeAgainAfterClose() {
         SingleInstance.acquire(folder.root.toPath())!!.close()
         SingleInstance.acquire(folder.root.toPath())!!.close()

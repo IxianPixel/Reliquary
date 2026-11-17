@@ -9,6 +9,7 @@ import com.malgra.reliquary.feature.channels.ChannelsViewModel
 import com.malgra.reliquary.feature.downloads.DownloadsViewModel
 import com.malgra.reliquary.feature.home.HomeViewModel
 import com.malgra.reliquary.feature.onboarding.OnboardingViewModel
+import com.malgra.reliquary.feature.player.PlayerViewModel
 import com.malgra.reliquary.feature.playlists.PlaylistViewModel
 import com.malgra.reliquary.feature.playlists.PlaylistsViewModel
 import com.malgra.reliquary.feature.queue.QueueViewModel
@@ -40,7 +41,8 @@ class ViewModelGraphTest {
 
     @Test
     fun buildsEveryFactory() {
-        listOf(ChannelViewModel.Factory::class, ChannelSettingsViewModel.Factory::class, PlaylistViewModel.Factory::class)
+        listOf(ChannelViewModel.Factory::class, ChannelSettingsViewModel.Factory::class, PlaylistViewModel.Factory::class,
+            PlayerViewModel.Factory::class)
             .forEach { graph.factory(it) }
     }
 }

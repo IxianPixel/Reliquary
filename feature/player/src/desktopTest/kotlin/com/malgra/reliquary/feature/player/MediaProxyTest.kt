@@ -56,12 +56,61 @@ class MediaProxyTest {
 
     @Test fun onlyRegisteredUrlsBehindTheSecretAreServed() {
         val local = proxy.register(server.url("/media/v.mp4").toString())
-        val secretPath = local.url.substringBeforeLast('/')
+        val secretPath = local.url.substringBefore("/${local.token}/")
         val origin = secretPath.substringBeforeLast('/')
 
-        assertEquals(404, status("$secretPath/999"))
-        assertEquals(404, status("$origin/wrong-secret/${local.token}"))
+        assertEquals(404, status("$secretPath/999/v.mp4"))
+        assertEquals(404, status("$origin/wrong-secret/${local.token}/v.mp4"))
         assertEquals(0, server.requestCount)
+    }
+
+    @Test fun theUrlEndsInTheFileName() {
+        // AVFoundation goes by the extension when the Content-Type is generic.
+        assertTrue(proxy.register(server.url("/media/UC1/abc.mp4").toString()).url.endsWith("/abc.mp4"))
+        assertTrue(proxy.register(server.url("/media/odd%20name").toString()).url.endsWith("/media"))
+    }
+
+    @Test fun aGenericContentTypeBecomesTheOneTheExtensionImplies() {
+        server.enqueue(MockResponse(code = 200, headers = headersOf("Content-Type", "application/octet-stream"), body = "x"))
+        server.enqueue(MockResponse(code = 200, headers = headersOf("Content-Type", "video/webm"), body = "x"))
+        val mp4 = proxy.register(server.url("/media/v.mp4").toString())
+        val webm = proxy.register(server.url("/media/v.mp4").toString())
+
+        assertEquals("video/mp4", contentType(mp4.url))
+        assertEquals("video/webm", contentType(webm.url)) // the server's video type stands
+    }
+
+    @Test fun redirectsAreFollowedOnlyWithinTheServer() {
+        server.enqueue(MockResponse(code = 302, headers = headersOf("Location", "/media/real.mp4")))
+        server.enqueue(MockResponse(code = 200, body = "abc"))
+        server.enqueue(MockResponse(code = 302, headers = headersOf("Location", "http://elsewhere.example/v.mp4")))
+        var reported: Int? = null
+        proxy.onUpstreamError = { _, status -> reported = status }
+
+        player.newCall(Request.Builder().url(proxy.register(server.url("/media/v.mp4").toString()).url).build()).execute().use {
+            assertEquals(200, it.code)
+            assertEquals("abc", it.body.string())
+        }
+        server.takeRequest()
+        val followed = server.takeRequest()
+        assertEquals("/media/real.mp4", followed.url.encodedPath)
+        assertEquals("Token secret", followed.headers["Authorization"])
+
+        assertEquals(302, status(proxy.register(server.url("/media/w.mp4").toString()).url))
+        assertEquals(302, reported)
+        assertEquals(3, server.requestCount) // nothing sent to elsewhere.example
+    }
+
+    @Test fun anUnexpectedFailureStillAnswersAndIsReported() {
+        val failing = MediaProxy(OkHttpClient.Builder().addInterceptor { error("boom") }.build())
+        var reported = false
+        failing.onUpstreamError = { _, status -> reported = status == null }
+        try {
+            assertEquals(502, status(failing.register(server.url("/media/v.mp4").toString()).url))
+            assertTrue(reported)
+        } finally {
+            failing.close()
+        }
     }
 
     @Test fun refusalsAreReported() {
@@ -80,4 +129,6 @@ class MediaProxyTest {
     }
 
     private fun status(url: String) = player.newCall(Request.Builder().url(url).build()).execute().use { it.code }
+
+    private fun contentType(url: String) = player.newCall(Request.Builder().url(url).build()).execute().use { it.header("Content-Type") }
 }

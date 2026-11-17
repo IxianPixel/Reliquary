@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":feature:channels"))
     implementation(project(":feature:playlists"))
     implementation(project(":feature:downloads"))
+    implementation(project(":feature:player"))
     implementation(project(":feature:queue"))
     implementation(project(":feature:search"))
     implementation(project(":feature:settings"))
@@ -80,6 +81,12 @@ compose.desktop {
                     extraKeysRawXml = """
                         <key>NSLocalNetworkUsageDescription</key>
                         <string>Reliquary connects to your Tube Archivist server, which may be on your local network.</string>
+                        <key>NSAppTransportSecurity</key>
+                        <dict>
+                            <!-- The player streams through a loopback proxy at http://127.0.0.1. -->
+                            <key>NSAllowsLocalNetworking</key>
+                            <true/>
+                        </dict>
                     """.trimIndent()
                 }
             }

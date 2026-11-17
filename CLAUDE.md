@@ -13,8 +13,10 @@ Material 3 Expressive, Catppuccin colours (Latte light, Mocha dark, Mauve accent
 ## Commands
 
 ```sh
-./gradlew assembleDebug testDebugUnitTest desktopTest lintDebug   # what CI's "Build, test and lint" runs
-./gradlew :core:data:testDebugUnitTest                # one module's tests
+./gradlew assembleDebug testDebugUnitTest desktopTest :desktop:test lintDebug   # what CI's "Build, test and lint" runs
+./gradlew :core:data:desktopTest                      # one shared module's tests (they run on the desktop JVM)
+./gradlew :desktop:run                                # the desktop app
+./gradlew :desktop:packageMacZip                      # a zipped .app (needs a JDK 21 with jpackage)
 ./gradlew assembleRelease                             # R8 build; unsigned without a keystore
 python3 scripts/prepare-release.py 0.2.0              # on a release/* branch only (see Releases)
 ```
@@ -24,19 +26,27 @@ Needs JDK 21. On a Mac without a system JDK, use Android Studio's:
 
 ## Layout
 
+Every `core:*` and `feature:*` module is Kotlin Multiplatform (#2) with two
+targets, Android and `jvm("desktop")`: shared code in `commonMain`, platform code in
+`androidMain`/`desktopMain`, tests in `desktopTest` (no Robolectric). Both targets
+are JVMs, so `commonMain` may use JDK and JVM libraries (OkHttp, `java.time`,
+`javax.inject`). Strings and icons are Compose resources (`composeResources/`).
+
 | Module | Role |
 |---|---|
 | `core:model` | Plain Kotlin domain types (`Video`, `Download`, `Comment`, `SponsorSegment`…). No Android. |
 | `core:network` | Retrofit API (`TubeArchivistApi`), DTOs, auth interceptor, `ServerUrl`, `LocalNetwork`. Retrofit stays internal: wrap `Response<T>` calls here (see `ProgressCalls.kt`). |
-| `core:database` | Room. Schema JSON is exported to `core/database/schemas/`. |
-| `core:data` | Repositories, mappers (DTO → entity → model), `ProgressResolver`, settings (DataStore), download files. |
-| `core:sync` | WorkManager workers: progress sync, library sync (keep-offline rules, filling in missing download extras). |
-| `core:download` | `DownloadWorker` and `MediaDownloader` (resumable plain-MP4 downloads). |
-| `core:designsystem` | Theme, colours, `ReliquaryIcons` (vector drawables). |
-| `core:ui` | Shared composables: video rows, thumbnails, Keep offline sheet, `StatusBarScrim`, local network prompt. |
-| `feature:*` | One screen each. `feature:player` also owns `PlaybackService` (media3 `MediaSessionService`) and the player sheet. |
-| `app` | Shell: `NavigationSuiteScaffold`, Navigation 3 back stack, player sheet over everything, Hilt app module. |
-| `build-logic` | Convention plugins; versions live in `gradle/libs.versions.toml`. |
+| `core:database` | Room. Schema JSON is exported to `core/database/schemas/`. Android uses the framework SQLite, desktop the bundled driver. |
+| `core:data` | Repositories, mappers (DTO → entity → model), `ProgressResolver`, settings (DataStore), download files. Platform pieces behind interfaces (`SessionCipher`: Keystore / OS keychain; `DownloadStorage`, `DeviceNetwork`, `PreferencesLocation`). |
+| `core:sync` | Progress sync and library sync (keep-offline rules, filling in missing download extras): shared logic, WorkManager workers on Android, coroutine schedulers on desktop. |
+| `core:download` | `MediaDownloader` and `DownloadJob` (resumable plain-MP4 downloads); `DownloadWorker` on Android, `DesktopDownloadScheduler` on desktop. |
+| `core:designsystem` | Theme, colours, `ReliquaryIcons` (Compose resource drawables; `RemoteActionIcons` keeps Android copies for picture-in-picture). |
+| `core:ui` | Shared composables: video rows, thumbnails, Keep offline sheet, `StatusBarScrim`, local network prompt. `ViewModelGraph` + `injectedViewModel()`: how screens get ViewModels on both platforms. |
+| `core:shell` | Navigation destinations and the shell's ViewModels, shared by `app` and `desktop`. |
+| `feature:*` | One screen each; ViewModels in `commonMain`, Hilt `@IntoMap` bindings in `androidMain`. `feature:player` owns the `VideoPlayer` abstraction and the player sheet: media3 and `PlaybackService` on Android, ComposeMediaPlayer behind a loopback auth proxy (`MediaProxy`) on desktop. |
+| `app` | Android shell: `NavigationSuiteScaffold`, Navigation 3 back stack, player sheet over everything, Hilt app module, `HiltViewModelGraph`. |
+| `desktop` | Desktop app (macOS, Windows, Linux): window, hand-wired `AppGraph` + `DesktopViewModelGraph`, single instance, packaging. |
+| `build-logic` | Convention plugins (`reliquary.kmp.library`, `.kmp.compose`, `.kmp.hilt`, `.kmp.feature`, plus the Android ones); versions live in `gradle/libs.versions.toml`. |
 
 ## Invariants: don't break these
 
@@ -55,9 +65,10 @@ Needs JDK 21. On a Mac without a system JDK, use Android Studio's:
 - **Credentials only go to the signed-in server's origin** (`AuthInterceptor`).
 - **The app talks only to the TA server.** No third-party requests (e.g. comment
   avatars are deliberately not loaded from YouTube), no analytics.
-- **Keep `core:model`, `core:network`, `core:database` and `core:data` free of
-  Android UI types** so the data layer can move to Kotlin Multiplatform (#2).
-  Put platform bits behind interfaces (`DownloadScheduler`, `NotificationIcon`).
+- **Nothing Android in `commonMain`.** Android code goes in `androidMain` or
+  behind an interface with a desktop implementation (`DownloadScheduler`,
+  `SessionCipher`, `DownloadStorage`). Hilt stays in `androidMain`; desktop wires
+  the same `@Inject` classes by hand in `AppGraph`.
 
 ## Tube Archivist facts that shape the design
 

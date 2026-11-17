@@ -3,6 +3,13 @@ package com.malgra.reliquary.desktop
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -39,6 +46,7 @@ fun main() {
         val state = rememberWindowState(size = DpSize(1280.dp, 800.dp))
         val viewModels = remember { DesktopViewModelGraph(app) }
         val viewModelStore = remember { WindowViewModelStore() }
+        val backShortcuts = remember { BackShortcuts() }
         setSingletonImageLoaderFactory { context ->
             ImageLoader.Builder(context)
                 // Thumbnails need the same credentials as the API, and go nowhere else.
@@ -58,6 +66,9 @@ fun main() {
             state = state,
             title = "Reliquary",
             icon = painterResource("icon.png"),
+            onPreviewKeyEvent = { event ->
+                event.isBackShortcut().also { if (it) backShortcuts.onBack() }
+            },
         ) {
             DisposableEffect(window) {
                 window.minimumSize = Dimension(720, 480)
@@ -69,12 +80,21 @@ fun main() {
                 LocalViewModelGraph provides viewModels,
             ) {
                 ReliquaryTheme {
-                    DesktopApp()
+                    DesktopApp(player = app.playback.player, windowState = state, backShortcuts = backShortcuts)
                 }
             }
         }
     }
 }
+
+private val isMac = System.getProperty("os.name").orEmpty().lowercase().startsWith("mac")
+
+/**
+ * Cmd+[ on macOS, Alt+Left elsewhere, as in browsers and file managers. Not
+ * Option+Left on macOS: in a text field that moves the cursor back a word.
+ */
+private fun KeyEvent.isBackShortcut(): Boolean =
+    type == KeyEventType.KeyDown && if (isMac) isMetaPressed && key == Key.LeftBracket else isAltPressed && key == Key.DirectionLeft
 
 /** Holds the window-wide ViewModels (the shell's), as the Activity does on Android; screens get their own per entry. */
 private class WindowViewModelStore : ViewModelStoreOwner {

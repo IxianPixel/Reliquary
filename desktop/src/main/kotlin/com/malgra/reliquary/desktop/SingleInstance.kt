@@ -53,13 +53,16 @@ class SingleInstance private constructor(
         private const val TAG = "SingleInstance"
         private val SHOW = "show".toByteArray()
 
+        /** macOS allows 104 bytes for a socket path, Linux 108: leave room. */
+        private const val MAX_SOCKET_PATH = 100
+
         /**
          * Takes [dir]'s lock, or, when another copy holds it, asks that copy to show
          * its window and returns null: the caller should quit.
          */
         fun acquire(dir: Path): SingleInstance? {
             Files.createDirectories(dir)
-            val socket = dir.resolve("reliquary.sock")
+            val socket = socketPath(dir)
             val channel = FileChannel.open(dir.resolve("reliquary.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
             val lock = try {
                 channel.tryLock()
@@ -72,6 +75,17 @@ class SingleInstance private constructor(
                 return null
             }
             return SingleInstance(lock, listen(socket))
+        }
+
+        /**
+         * Beside the lock, unless that path is too long for a socket (about 100 bytes); then a
+         * name in the temp folder that every copy using [dir] works out the same way.
+         */
+        internal fun socketPath(dir: Path): Path {
+            val beside = dir.toAbsolutePath().resolve("reliquary.sock")
+            if (beside.toString().toByteArray().size <= MAX_SOCKET_PATH) return beside
+            val id = Integer.toHexString(dir.toAbsolutePath().toString().hashCode())
+            return Path.of(System.getProperty("java.io.tmpdir"), "reliquary-$id.sock").toAbsolutePath()
         }
 
         /** Null when the socket can't be made (e.g. a path too long for one); only the hand-over is lost. */

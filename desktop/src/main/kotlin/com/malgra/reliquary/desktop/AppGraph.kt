@@ -40,6 +40,7 @@ import com.malgra.reliquary.core.sync.DesktopLibrarySyncScheduler
 import com.malgra.reliquary.core.sync.DesktopProgressSyncScheduler
 import com.malgra.reliquary.core.sync.LibrarySync
 import com.malgra.reliquary.core.sync.ProgressSync
+import com.malgra.reliquary.feature.player.DesktopPlayback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -106,6 +107,11 @@ class AppGraph(val directories: AppDirectories, logHttp: Boolean) {
         AuthRepository(network, sessions, RoomLibraryCache(database, downloadScheduler, downloadFiles), progressSync)
     }
 
+    private val playbackLazy = lazy { DesktopPlayback(okHttpClient, progress, settings, applicationScope) }
+
+    /** The one player, for the app's lifetime: what PlaybackService is on Android. */
+    val playback by playbackLazy
+
     /** What the Android app does in `ReliquaryApplication.onCreate`, plus resuming downloads, which end with the app here. */
     fun start() {
         downloadScheduler.resumeUnfinished()
@@ -113,8 +119,9 @@ class AppGraph(val directories: AppDirectories, logHttp: Boolean) {
         librarySync.schedulePeriodic()
     }
 
-    /** Stops syncs and downloads (they pick up again next launch) and closes the database. */
+    /** Saves the playing video's place, stops syncs and downloads (they pick up again next launch) and closes the database. */
     fun close() {
+        if (playbackLazy.isInitialized()) playback.release() // needs the app scope, so first
         applicationScope.cancel()
         database.close()
     }

@@ -19,7 +19,8 @@
   progress. Downloads stays for videos saved on the phone. (#23)
 - **Desktop app (in progress).** Reliquary now also runs on macOS, Windows and
   Linux, sharing its data, sync and screens with the phone app. So far you can
-  sign in and browse your library; playing videos comes next. (#2)
+  sign in, browse your library and play videos, with the same resume,
+  progress sync and SponsorBlock skips as the phone. (#2)
 
 ## v0.1.0
 
