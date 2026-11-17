@@ -47,6 +47,24 @@ Requires Android 10 or later.
 Needs JDK 21. A release build (`./gradlew assembleRelease`) is unsigned unless a
 keystore is set up as below.
 
+## Desktop (in progress)
+
+Reliquary also runs on macOS, Windows and Linux, sharing its data, sync and
+screens with the Android app. Run it from a checkout:
+
+```bash
+./gradlew :desktop:run
+```
+
+`./gradlew :desktop:packageMacZip` builds a zipped `.app` for the Mac you're on
+(it needs a JDK 21 with `jpackage`; Gradle downloads one if it's missing).
+Builds are unsigned for now, so macOS asks you to right-click and choose Open
+the first time.
+
+Videos play through [libVLC](https://www.videolan.org/vlc/libvlc.html), which
+the build downloads (a pinned version, checksum-checked) and bundles with the
+macOS and Windows apps. On Linux, install your distribution's `vlc` package.
+
 ## Releasing
 
 1. Add each user-visible change to `## Unreleased` in [CHANGELOG.md](CHANGELOG.md)
@@ -74,4 +92,5 @@ git-ignored `app/keystore.properties` (`storeFile`, `storePassword`,
 
 ## Licence
 
-[GPL-3.0-or-later](LICENSE).
+[GPL-3.0-or-later](LICENSE). The desktop app includes third-party software
+under its own licences; see [NOTICE](NOTICE).

@@ -1,3 +1,3 @@
 plugins {
-    alias(libs.plugins.reliquary.android.feature)
+    alias(libs.plugins.reliquary.kmp.feature)
 }

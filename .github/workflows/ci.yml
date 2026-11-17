@@ -34,7 +34,7 @@ jobs:
       # The runner's preinstalled SDK has accepted licenses, so AGP downloads
       # any missing platform (compileSdk 37) on first use.
       - name: Build, unit tests and lint
-        run: ./gradlew assembleDebug testDebugUnitTest :core:model:test lintDebug --console=plain
+        run: ./gradlew assembleDebug testDebugUnitTest desktopTest :desktop:test lintDebug --console=plain
 
       # Release (R8) build only for PRs into master: catches release-only failures
       # before they reach the protected branch without slowing pushes to develop.

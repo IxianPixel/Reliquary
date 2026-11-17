@@ -1,3 +1,3 @@
 plugins {
-    alias(libs.plugins.reliquary.jvm.library)
+    alias(libs.plugins.reliquary.kmp.library)
 }

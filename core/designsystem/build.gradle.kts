@@ -1,10 +1,19 @@
 plugins {
-    alias(libs.plugins.reliquary.android.library)
-    alias(libs.plugins.reliquary.android.compose)
+    alias(libs.plugins.reliquary.kmp.library)
+    alias(libs.plugins.reliquary.kmp.compose)
 }
 
-dependencies {
-    api(platform(libs.androidx.compose.bom))
-    api(libs.androidx.compose.material3)
-    api(libs.androidx.compose.ui.graphics)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            api(libs.cmp.material3)
+            api(libs.cmp.ui)
+            api(libs.cmp.components.resources) // ReliquaryIcons are DrawableResources
+        }
+    }
+}
+
+// Features read ReliquaryIcons' drawables.
+compose.resources {
+    publicResClass = true
 }

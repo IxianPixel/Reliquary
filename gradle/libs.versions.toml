@@ -20,6 +20,7 @@ room = "2.8.5"
 work = "2.12.0"
 datastore = "1.3.0"
 paging = "3.5.3"
+sqlite = "2.7.1" # sqlite-bundled: Room's driver on desktop (Android keeps the framework SQLite)
 
 # DI
 hilt = "2.60.1"
@@ -32,11 +33,18 @@ kotlinxSerialization = "1.12.0"
 kotlinxCoroutines = "1.11.0"
 coil = "3.6.3"
 
+# Kotlin Multiplatform (#2): Compose Multiplatform for desktop, JetBrains builds of the AndroidX libraries.
+# On Android these resolve to the Jetpack artifacts, and the versions above still win.
+composeMultiplatform = "1.12.2"
+cmpMaterial3 = "1.12.0-alpha03" # Expressive APIs (Jetpack material3 1.5.0-alpha22 underneath)
+cmpLifecycle = "2.11.0"
+cmpNavigation3 = "1.2.0"
+vlcj = "4.12.1" # desktop player on libVLC 3.0.x (bundled by :desktop), desktopMain only
+javaxInject = "1"
+javaKeyring = "1.0.4" # desktop: the session key in the OS keychain
+
 # Test
 junit = "4.13.2"
-robolectric = "4.17"
-androidxTestCore = "1.7.0"
-androidxTestExt = "1.3.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -77,6 +85,9 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
 androidx-paging-testing = { module = "androidx.paging:paging-testing", version.ref = "paging" }
+androidx-paging-common = { module = "androidx.paging:paging-common", version.ref = "paging" }
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
@@ -93,13 +104,28 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
+javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
+vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
+java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "javaKeyring" }
+
+# Compose Multiplatform (#2)
+cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+cmp-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+cmp-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "composeMultiplatform" }
+cmp-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
+cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "cmpMaterial3" }
+cmp-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "cmpLifecycle" }
+cmp-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "cmpLifecycle" }
+cmp-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "cmpNavigation3" }
+cmp-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "cmpLifecycle" }
+cmp-material3-adaptive-navigation-suite = { module = "org.jetbrains.compose.material3:material3-adaptive-navigation-suite", version.ref = "cmpMaterial3" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
-robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
-androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExt" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 # Gradle plugins used by build-logic
@@ -107,10 +133,14 @@ android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref 
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 compose-gradlePlugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { module = "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+composeMultiplatform-gradlePlugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "composeMultiplatform" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
@@ -125,3 +155,7 @@ reliquary-android-compose = { id = "reliquary.android.compose" }
 reliquary-android-feature = { id = "reliquary.android.feature" }
 reliquary-hilt = { id = "reliquary.hilt" }
 reliquary-jvm-library = { id = "reliquary.jvm.library" }
+reliquary-kmp-library = { id = "reliquary.kmp.library" }
+reliquary-kmp-compose = { id = "reliquary.kmp.compose" }
+reliquary-kmp-hilt = { id = "reliquary.kmp.hilt" }
+reliquary-kmp-feature = { id = "reliquary.kmp.feature" }
