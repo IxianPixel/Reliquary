@@ -23,6 +23,21 @@ to get updates automatically.
 
 Requires Android 10 or later.
 
+## Features
+
+- Channel viewing
+- Channel adding/subscribing
+- Per channel settings (page sizes, downloads, index, & SponsorBlock)
+- Playlist support
+- Playlist adding/subscribing
+- Offline support for channels, playlists and individual videos
+- Tube Archivist download management (rescanning subscriptions and downloading videos)
+- Similar videos
+- Comments
+- Captions/Subtitles
+- Picture in Picture (PiP)
+- SponsorBlock support
+
 ## Build
 
 ```bash
@@ -46,12 +61,12 @@ keystore is set up as below.
 
 The workflow needs these repository secrets:
 
-| Secret | Value |
-|---|---|
+| Secret                    | Value                                |
+| ------------------------- | ------------------------------------ |
 | `RELEASE_KEYSTORE_BASE64` | The release keystore, base64-encoded |
-| `RELEASE_STORE_PASSWORD` | The keystore's password |
-| `RELEASE_KEY_ALIAS` | The signing key's alias |
-| `RELEASE_KEY_PASSWORD` | The signing key's password |
+| `RELEASE_STORE_PASSWORD`  | The keystore's password              |
+| `RELEASE_KEY_ALIAS`       | The signing key's alias              |
+| `RELEASE_KEY_PASSWORD`    | The signing key's password           |
 
 For signed release builds on your own machine, put the same values in a
 git-ignored `app/keystore.properties` (`storeFile`, `storePassword`,
