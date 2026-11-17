@@ -84,37 +84,40 @@ internal class MediaProxy(client: OkHttpClient, private val verbose: Boolean = f
             exchange.sendResponseHeaders(404, -1)
             return
         }
-        try {
-            fetch(url, method, range).use { response ->
-                val type = response.contentType(url)
-                val length = response.body.contentLength()
-                val line = "#$token $method range=${range ?: "-"} -> ${response.code} type=${type ?: "-"} " +
-                    "upstreamType=${response.header("Content-Type") ?: "-"} length=$length"
-                // A redirect still here is one off the server, which isn't followed.
-                if (response.code >= 400 || response.isRedirect) {
-                    Log.w(TAG, line)
-                    onUpstreamError?.invoke(token, response.code)
-                } else if (verbose) {
-                    Log.i(TAG, line)
-                }
-                type?.let { exchange.responseHeaders.add("Content-Type", it) }
-                PASSED_HEADERS.forEach { name ->
-                    response.header(name)?.let { exchange.responseHeaders.add(name, it) }
-                }
-                val noBody = method == "HEAD" || response.code == 204 || response.code == 304 || response.isRedirect
-                exchange.sendResponseHeaders(response.code, if (noBody) -1 else length.coerceAtLeast(0))
-                if (noBody) return
-                try {
-                    response.body.byteStream().use { it.transferTo(exchange.responseBody) }
-                } catch (_: IOException) {
-                    // The player dropped a range it no longer needs.
-                }
-            }
+        val response = try {
+            fetch(url, method, range)
         } catch (e: Exception) {
             // Not only IOException: anything else would drop the connection with no status, and the player would just wait.
             Log.w(TAG, "#$token $method range=${range ?: "-"} failed: ${e.javaClass.simpleName}: ${e.message}")
             onUpstreamError?.invoke(token, null)
             runCatching { exchange.sendResponseHeaders(502, -1) }
+            return
+        }
+        response.use {
+            val type = response.contentType(url)
+            val length = response.body.contentLength()
+            val line = "#$token $method range=${range ?: "-"} -> ${response.code} type=${type ?: "-"} " +
+                "upstreamType=${response.header("Content-Type") ?: "-"} length=$length"
+            // A redirect still here is one off the server, which isn't followed. A 416 is a probe past the
+            // end of the file, which players make and handle themselves.
+            if ((response.code >= 400 && response.code != 416) || response.isRedirect) {
+                Log.w(TAG, line)
+                onUpstreamError?.invoke(token, response.code)
+            } else if (verbose) {
+                Log.i(TAG, line)
+            }
+            type?.let { exchange.responseHeaders.add("Content-Type", it) }
+            PASSED_HEADERS.forEach { name ->
+                response.header(name)?.let { exchange.responseHeaders.add(name, it) }
+            }
+            val noBody = method == "HEAD" || response.code == 204 || response.code == 304 || response.isRedirect
+            try {
+                exchange.sendResponseHeaders(response.code, if (noBody) -1 else length.coerceAtLeast(0))
+                if (!noBody) response.body.byteStream().use { it.transferTo(exchange.responseBody) }
+            } catch (e: IOException) {
+                // The player hung up: it dropped a range it no longer needs (it does on every seek). Not the server's fault.
+                if (verbose) Log.i(TAG, "#$token $method range=${range ?: "-"}: the player hung up (${e.message})")
+            }
         }
     }
 

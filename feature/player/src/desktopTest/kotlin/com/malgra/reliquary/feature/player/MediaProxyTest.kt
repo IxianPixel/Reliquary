@@ -123,6 +123,16 @@ class MediaProxyTest {
         assertEquals(local.token to 401, reported)
     }
 
+    @Test fun aProbePastTheEndIsNotAnError() {
+        server.enqueue(MockResponse(code = 416))
+        var reported = false
+        proxy.onUpstreamError = { _, _ -> reported = true }
+        val local = proxy.register(server.url("/media/v.mp4").toString())
+
+        assertEquals(416, status(local.url))
+        assertTrue(!reported)
+    }
+
     @Test fun itListensOnTheLoopbackAddressOnly() {
         val local = proxy.register(server.url("/media/v.mp4").toString())
         assertTrue(local.url.startsWith("http://127.0.0.1:"))

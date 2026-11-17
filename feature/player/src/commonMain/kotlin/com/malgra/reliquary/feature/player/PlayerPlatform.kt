@@ -52,3 +52,10 @@ internal expect fun rememberIsInPictureInPicture(): Boolean
  */
 @Composable
 internal expect fun PictureInPictureSupport(player: VideoPlayer, enabled: Boolean, sourceBounds: Rect?)
+
+/**
+ * Desktop: [onMove] on each pointer move over the video, so hovering shows the
+ * controls, and no cursor while [hideCursor]. Nothing on Android, where a tap
+ * toggles them.
+ */
+internal expect fun Modifier.pointerActivity(hideCursor: Boolean, onMove: () -> Unit): Modifier

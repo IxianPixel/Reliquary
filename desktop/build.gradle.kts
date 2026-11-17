@@ -1,4 +1,13 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.gradle.process.ExecOperations
+import java.io.OutputStream
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.HexFormat
+import java.util.Properties
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.reliquary.jvm.library)
@@ -9,6 +18,20 @@ plugins {
 // One version for the phone and desktop apps; scripts/prepare-release.py bumps it in app/build.gradle.kts.
 val appVersion: String = Regex("""versionName = "([^"]+)"""")
     .find(rootProject.file("app/build.gradle.kts").readText())!!.groupValues[1]
+
+// libVLC for the player: pinned in vlc.properties, bundled on macOS and Windows, the system's on Linux.
+val vlc = Properties().apply { file("vlc.properties").inputStream().use(::load) }
+val vlcVersion: String = vlc.getProperty("version")
+val vlcTarget: String? = System.getProperty("os.name").lowercase().let { os ->
+    when {
+        os.startsWith("mac") -> if (System.getProperty("os.arch") == "aarch64") "macos-arm64" else "macos-x64"
+        os.startsWith("windows") -> "windows-x64"
+        else -> null
+    }
+}
+val vlcCache = File(gradle.gradleUserHomeDir, "caches/reliquary-vlc/$vlcVersion")
+// Compose copies <root>/<os>-<arch>/ into the app's resources: vlc/ ends up at <resources>/vlc.
+val vlcResources = layout.buildDirectory.dir("vlc-resources")
 
 dependencies {
     implementation(project(":core:model"))
@@ -61,6 +84,8 @@ compose.desktop {
         jvmArgs += "--enable-native-access=ALL-UNNAMED"
 
         nativeDistributions {
+            if (vlcTarget != null) appResourcesRootDir.set(vlcResources)
+
             // macOS ships as a zipped .app (packageMacZip) until 1.0: jpackage refuses a DMG version starting with 0.
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Reliquary"
@@ -105,7 +130,7 @@ compose.desktop {
     }
 }
 
-val setMacBundleVersion by tasks.registering(Exec::class) {
+val setMacBundleVersion = tasks.register<Exec>("setMacBundleVersion") {
     description = "Writes the app's real version into the macOS bundle's Info.plist."
     dependsOn("createDistributable")
     val plist = layout.buildDirectory.file("compose/binaries/main/app/Reliquary.app/Contents/Info.plist")
@@ -117,7 +142,7 @@ val setMacBundleVersion by tasks.registering(Exec::class) {
     )
 }
 
-val packageMacZip by tasks.registering(Exec::class) {
+val packageMacZip = tasks.register<Exec>("packageMacZip") {
     group = "compose desktop"
     description = "Zips the macOS app bundle."
     dependsOn(setMacBundleVersion)
@@ -129,17 +154,17 @@ val packageMacZip by tasks.registering(Exec::class) {
     commandLine("ditto", "-c", "-k", "--keepParent", app.get().asFile.absolutePath, zip.get().asFile.absolutePath)
 }
 
-// The player's Linux backend links against GStreamer, which jpackage can't see; the Compose plugin
+// On Linux the player uses the system's libVLC, which jpackage can't see; the Compose plugin
 // has no option for extra package dependencies, so they're added to the built .deb.
-val addDebDependencies by tasks.registering(Exec::class) {
-    description = "Adds GStreamer, which the video player needs on Linux, to the .deb's dependencies."
+val addDebDependencies = tasks.register<Exec>("addDebDependencies") {
+    description = "Adds libVLC, which the video player needs on Linux, to the .deb's dependencies."
     onlyIf { System.getProperty("os.name").startsWith("Linux") }
     val debs = layout.buildDirectory.dir("compose/binaries/main/deb")
     commandLine(
         "sh", "-c",
         """
         set -e
-        deps="gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav"
+        deps="libvlc5, vlc-plugin-base, vlc-plugin-video-output"
         for deb in "${'$'}1"/*.deb; do
             work=${'$'}(mktemp -d)
             dpkg-deb -R "${'$'}deb" "${'$'}work"
@@ -157,3 +182,104 @@ val addDebDependencies by tasks.registering(Exec::class) {
     )
 }
 tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(addDebDependencies) }
+
+/** Downloads [url] into [target] once, and fails unless its SHA-256 is [sha256]. */
+abstract class FetchVerified : DefaultTask() {
+    @get:Input abstract val url: Property<String>
+    @get:Input abstract val sha256: Property<String>
+    @get:OutputFile abstract val target: RegularFileProperty
+
+    @TaskAction
+    fun fetch() {
+        val file = target.get().asFile
+        if (file.exists() && sha256Of(file) == sha256.get()) return
+        file.parentFile.mkdirs()
+        val part = File(file.path + ".part")
+        URI(url.get()).toURL().openStream().use { input -> Files.copy(input, part.toPath(), StandardCopyOption.REPLACE_EXISTING) }
+        val actual = sha256Of(part)
+        if (actual != sha256.get()) {
+            part.delete()
+            throw GradleException("${url.get()} has SHA-256 $actual, not the pinned ${sha256.get()} (vlc.properties).")
+        }
+        Files.move(part.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
+
+    private fun sha256Of(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(1 shl 16)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return HexFormat.of().formatHex(digest.digest())
+    }
+}
+
+/** Copies libvlc, libvlccore (as plain files, not VLC.app's symlinks) and plugins/ out of VLC's macOS disk image. */
+abstract class ExtractVlcFromDmg : DefaultTask() {
+    @get:InputFile abstract val dmg: RegularFileProperty
+    @get:OutputDirectory abstract val into: DirectoryProperty
+    @get:Inject abstract val exec: ExecOperations
+
+    @TaskAction
+    fun extract() {
+        val out = into.get().asFile.apply { deleteRecursively(); mkdirs() }
+        val mount = Files.createTempDirectory("vlc-dmg").toFile()
+        exec.exec {
+            commandLine("hdiutil", "attach", "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path, dmg.get().asFile.path)
+            standardOutput = OutputStream.nullOutputStream()
+        }
+        try {
+            val macos = File(mount, "VLC.app/Contents/MacOS")
+            for (name in listOf("libvlc.dylib", "libvlccore.dylib")) {
+                // Their install names are @rpath/libvlc.dylib and @rpath/libvlccore.dylib, so keep these names.
+                Files.copy(File(macos, "lib/$name").toPath(), File(out, name).toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            exec.exec { commandLine("ditto", File(macos, "plugins").path, File(out, "plugins").path) }
+        } finally {
+            exec.exec { commandLine("hdiutil", "detach", mount.path, "-quiet") }
+            mount.delete()
+        }
+    }
+}
+
+if (vlcTarget != null) {
+    val fetchVlc = tasks.register<FetchVerified>("fetchVlc") {
+        description = "Downloads the pinned libVLC for this OS and checks its SHA-256."
+        url.set(vlc.getProperty("$vlcTarget.url"))
+        sha256.set(vlc.getProperty("$vlcTarget.sha256"))
+        target.set(File(vlcCache, vlc.getProperty("$vlcTarget.url").substringAfterLast('/')))
+    }
+    val vlcFiles: Any = if (vlcTarget.startsWith("macos")) {
+        tasks.register<ExtractVlcFromDmg>("extractVlc") {
+            dmg.set(fetchVlc.flatMap { it.target })
+            into.set(layout.buildDirectory.dir("vlc-extracted/$vlcTarget"))
+        }
+    } else {
+        // The win64 zip holds vlc-<version>/libvlc.dll, libvlccore.dll and plugins/.
+        zipTree(fetchVlc.flatMap { it.target }).matching {
+            include("vlc-$vlcVersion/libvlc.dll", "vlc-$vlcVersion/libvlccore.dll", "vlc-$vlcVersion/plugins/**")
+        }
+    }
+    val prepareVlc = tasks.register<Sync>("prepareVlc") {
+        description = "Puts libVLC, its plugins and its licences where the app's resources are built from."
+        from(vlcFiles) {
+            if (vlcTarget == "windows-x64") eachFile { relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray()) }
+        }
+        from("vlc-licences")
+        from(resources.text.fromString(
+            """
+            libVLC $vlcVersion and its plugins, from VideoLAN (https://www.videolan.org/vlc/).
+            libVLC is licensed under the GNU LGPL 2.1 or later (COPYING.LIB); some plugins under the GNU GPL 2 or later (COPYING).
+            Source code: ${vlc.getProperty("source.url")}
+            It is also attached to every Reliquary release that ships a desktop build.
+            """.trimIndent() + "\n",
+        ).asFile()) { rename { "README.txt" } }
+        includeEmptyDirs = false
+        into(vlcResources.map { it.dir("$vlcTarget/vlc") })
+    }
+    tasks.matching { it.name == "prepareAppResources" }.configureEach { dependsOn(prepareVlc) }
+}

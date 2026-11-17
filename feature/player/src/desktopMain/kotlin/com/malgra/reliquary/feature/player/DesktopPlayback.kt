@@ -30,9 +30,8 @@ class DesktopPlayback(
     @Volatile private var skipSponsors = true
 
     private val tracker = ProgressTracker(desktopPlayer, progress.asPlaybackProgress(), scope)
-    private val skipper = SponsorSkipper(desktopPlayer, enabled = { skipSponsors }, keyframeSlackMs = KEYFRAME_SLACK_MS) {
-        SponsorSkips.emit(it)
-    }
+    // libVLC seeks exactly, so the skip rules need no keyframe slack, as on Android.
+    private val skipper = SponsorSkipper(desktopPlayer, enabled = { skipSponsors }) { SponsorSkips.emit(it) }
 
     init {
         main.launch { settings.skipSponsorSegments.collect { skipSponsors = it } }
@@ -44,10 +43,5 @@ class DesktopPlayback(
         skipper.release()
         desktopPlayer.release()
         main.cancel()
-    }
-
-    private companion object {
-        /** Further apart than keyframes in a TA download, so a seek to a segment's start counts as one. */
-        const val KEYFRAME_SLACK_MS = 10_000L
     }
 }

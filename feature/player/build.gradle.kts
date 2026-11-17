@@ -3,7 +3,7 @@ plugins {
 }
 
 // The player: shared screens and progress/SponsorBlock logic over VideoPlayer,
-// media3 behind a MediaSession on Android, ComposeMediaPlayer on desktop.
+// media3 behind a MediaSession on Android, libVLC (vlcj) on desktop.
 kotlin {
     sourceSets {
         commonMain.dependencies {
@@ -19,7 +19,7 @@ kotlin {
             implementation(libs.androidx.activity.compose)
         }
         getByName("desktopMain").dependencies {
-            implementation(libs.composemediaplayer)
+            implementation(libs.vlcj)
             implementation(libs.okhttp.core)
             implementation(libs.kotlinx.coroutines.swing) // Dispatchers.Main
             implementation(libs.cmp.ui.backhandler) // Escape as Back

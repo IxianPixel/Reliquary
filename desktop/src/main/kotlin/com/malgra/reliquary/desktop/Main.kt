@@ -36,6 +36,7 @@ import java.io.File
 import javax.swing.SwingUtilities
 
 fun main() {
+    useBundledVlc()
     val directories = AppDirectories()
     val instance = SingleInstance.acquire(directories.root.toPath()) ?: return
     // Set by `./gradlew :desktop:run` only, never in packaged builds.
@@ -85,6 +86,17 @@ fun main() {
             }
         }
     }
+}
+
+/**
+ * Points the player at the libVLC bundled in the app's resources (macOS and Windows), the same
+ * under `./gradlew :desktop:run` as packaged. Linux bundles none, so the player uses the system's.
+ */
+private fun useBundledVlc() {
+    if (System.getProperty("reliquary.vlc.dir") != null) return
+    val resources = System.getProperty("compose.application.resources.dir") ?: return
+    val vlc = File(resources, "vlc")
+    if (vlc.isDirectory) System.setProperty("reliquary.vlc.dir", vlc.absolutePath)
 }
 
 private val isMac = System.getProperty("os.name").orEmpty().lowercase().startsWith("mac")

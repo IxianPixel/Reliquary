@@ -3,63 +3,63 @@ package com.malgra.reliquary.feature.player
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import com.malgra.reliquary.core.network.log.Log
-import io.github.kdroidfilter.composemediaplayer.InitialPlayerState
-import io.github.kdroidfilter.composemediaplayer.VideoPlayerState
-import io.github.kdroidfilter.composemediaplayer.createVideoPlayerState
-import io.github.kdroidfilter.composemediaplayer.util.allowComposeMediaPlayerLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.math.abs
 
 /**
- * [VideoPlayer] over ComposeMediaPlayer (AVPlayer on macOS, Media Foundation on
- * Windows, GStreamer on Linux). The library plays one file at a time, so the
- * queue is kept here; server media goes through [MediaProxy] for its credentials.
+ * [VideoPlayer] on a [PlaybackEngine] (libVLC in the app). The engine plays one
+ * file at a time, so the queue is kept here; server media goes through
+ * [MediaProxy] for its credentials. The engine is made on the first open, so a
+ * missing libVLC only matters once something is played.
  *
- * Its seeks land on a keyframe, so a seek is reported once it has settled, at
- * the position it reached. Everything runs on [scope]'s main (Swing) thread.
- *
- * The library reports no error when AVFoundation can't open a stream, so an
- * item that doesn't start playing within a while is reported as one.
- * RELIQUARY_PLAYER_DEBUG=1 in the environment logs every media request and
- * the library's own messages.
+ * Everything runs on [scope]'s main thread; engine events are moved there.
+ * RELIQUARY_PLAYER_DEBUG=1 in the environment logs every media request.
  */
 internal class DesktopVideoPlayer(
     private val client: OkHttpClient,
     private val scope: CoroutineScope,
+    private val engines: EngineFactory = VlcEngine.Factory,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : VideoPlayer {
 
-    private val debug = System.getenv("RELIQUARY_PLAYER_DEBUG") != null
-
-    internal val state: VideoPlayerState = run {
-        if (debug) allowComposeMediaPlayerLogging = true
-        createVideoPlayerState()
-    }
-    private val proxy = MediaProxy(client, verbose = debug)
+    private val proxy = MediaProxy(client, verbose = System.getenv("RELIQUARY_PLAYER_DEBUG") != null)
     private val listeners = CopyOnWriteArrayList<VideoPlayerListener>()
 
+    private var engine: PlaybackEngine? = null
     private var queue = emptyList<PlayerItem>()
     private var index = -1
     private var proxyToken: String? = null
 
-    private var openJob: Job? = null
-    private var seekJob: Job? = null
+    /** Set while an item is opening: where it starts, reported as the position until it shows. */
+    private var opening: Long? = null
+    private var playing = false
+    private var buffering = false
+    private var ended = false
+    private var error: PlayerError? = null
+
+    /** The current item has shown a picture: after that, a reported problem only counts if playback stops. */
+    private var started = false
+    private var lastTime = -1L
+    private var suspectJob: Job? = null
+
+    /** The last seek, reported until the engine's clock catches up with it. */
+    private var lastSeek: Long? = null
+    private var lastSeekAt = 0L
+
+    private var startJob: Job? = null
     private var subtitleJob: Job? = null
 
-    /** Set while an item is opening: the position to report until it plays. */
-    private var opening by mutableStateOf<Long?>(null)
-    private var ended by mutableStateOf(false)
-    private var ownError by mutableStateOf<PlayerError?>(null)
+    /** An open not yet handed to the engine: it waits a turn, so a play() right after it (as PlayerSheet does) opens unpaused. */
+    private var pendingOpen: Job? = null
 
     private var lastStatus = PlayerStatus(PlaybackState.Idle, false, null)
     private var lastSize = VideoSize.Unknown
@@ -73,12 +73,10 @@ internal class DesktopVideoPlayer(
     internal var cues by mutableStateOf(emptyList<SubtitleCue>())
         private set
 
-    override var playWhenReady by mutableStateOf(false)
-        private set
+    /** The pictures, once libVLC is playing something. */
+    internal val frames: VideoFrames? get() = (engine as? VlcEngine)?.frames
 
     init {
-        state.loop = false
-        state.onPlaybackEnded = { scope.launch { onItemEnded() } }
         proxy.onUpstreamError = { token, status ->
             scope.launch {
                 if (token != proxyToken) return@launch
@@ -89,31 +87,31 @@ internal class DesktopVideoPlayer(
                         null -> PlayerError.Network
                         else -> PlayerError.Playback("HTTP $status")
                     },
+                    "the server answered ${status ?: "nothing"}",
+                    source = "the media proxy",
                 )
             }
         }
-        // Turn the library's Compose state into callbacks.
-        scope.launch {
-            snapshotFlow { Triple(computeStatus(), state.metadata.width to state.metadata.height, state.isPlaying) }
-                .collect { (status, size, _) ->
-                    publishStatus(status)
-                    val videoSize = VideoSize(size.first ?: 0, size.second ?: 0)
-                    if (videoSize != lastSize) {
-                        lastSize = videoSize
-                        listeners.forEach { it.onVideoSizeChanged(videoSize) }
-                    }
-                }
-        }
     }
 
+    override var playWhenReady = false
+        private set
     override val currentItem: PlayerItem? get() = queue.getOrNull(index)
     override val isPlaying: Boolean get() = lastStatus.isPlaying
-    override val positionMs: Long
-        get() = opening ?: if (ended) durationMs else (state.currentTime * 1000).toLong().coerceAtLeast(0)
-    override val durationMs: Long get() = (state.duration * 1000).toLong().coerceAtLeast(0)
+    override val durationMs: Long get() = engine?.durationMs ?: 0
     override val status: PlayerStatus get() = lastStatus
     override val videoSize: VideoSize get() = lastSize
     override val selectedSubtitleKey: String? get() = subtitleKey
+
+    override val positionMs: Long
+        get() {
+            opening?.let { return it }
+            if (ended) return durationMs
+            val position = engine?.positionMs ?: 0
+            val seek = lastSeek ?: return position
+            // libVLC's clock moves to a seek's target a moment after it.
+            return if (clock() - lastSeekAt < SEEK_CATCH_UP_MS && abs(position - seek) > SEEK_TOLERANCE_MS) seek else position
+        }
 
     override fun addListener(listener: VideoPlayerListener) {
         listeners.addIfAbsent(listener)
@@ -135,14 +133,18 @@ internal class DesktopVideoPlayer(
 
     override fun play() {
         playWhenReady = true
-        if (opening == null) state.play()
-        publishStatus(computeStatus())
+        if (currentItem != null && error == null) {
+            if (pendingOpen == null) engine?.play()
+            watchStart()
+        }
+        publish()
     }
 
     override fun pause() {
         playWhenReady = false
-        state.pause()
-        publishStatus(computeStatus())
+        engine?.pause()
+        startJob?.cancel()
+        publish()
     }
 
     override fun prepare() {
@@ -151,21 +153,20 @@ internal class DesktopVideoPlayer(
 
     override fun clear() {
         val old = here()
-        openJob?.cancel()
-        seekJob?.cancel()
-        state.stop()
+        pendingOpen?.cancel()
+        pendingOpen = null
+        engine?.stop()
+        startJob?.cancel()
         playWhenReady = false
         queue = emptyList()
         index = -1
         proxy.clear()
         proxyToken = null
-        opening = null
-        ended = false
-        ownError = null
+        resetPlayback()
         showSubtitles(null)
         if (old.videoId != null) jumped(old, PlayerPosition(null, 0), PositionJumpReason.Other)
         listeners.forEach { it.onItemTransition(null, ItemTransitionReason.Other) }
-        publishStatus(computeStatus())
+        publish()
     }
 
     override fun seekTo(positionMs: Long) {
@@ -173,20 +174,18 @@ internal class DesktopVideoPlayer(
         val duration = durationMs
         val target = if (duration > 0) positionMs.coerceIn(0, duration) else positionMs.coerceAtLeast(0)
         val old = here()
-        if (opening != null || duration <= 0) {
-            // Not loaded yet: start there instead.
+        if (opening != null) {
+            // Not showing yet: it starts there instead, once loaded.
             opening = target
-            jumped(old, PlayerPosition(item.videoId, target), PositionJumpReason.Seek)
-            return
+        } else {
+            ended = false
+            engine?.seekTo(target)
+            lastSeek = target
+            lastSeekAt = clock()
         }
-        ended = false
-        state.seekTo(target.toFloat() / duration * 1000f)
-        seekJob?.cancel()
-        seekJob = scope.launch {
-            settle()
-            val landed = this@DesktopVideoPlayer.positionMs
-            jumped(old, PlayerPosition(item.videoId, landed, target.takeIf { it != landed }), PositionJumpReason.Seek)
-        }
+        // libVLC seeks exactly, so the target is where it lands.
+        jumped(old, PlayerPosition(item.videoId, target), PositionJumpReason.Seek)
+        publish()
     }
 
     override fun seekBack() = seekTo((positionMs - SEEK_INCREMENT_MS).coerceAtLeast(0))
@@ -198,14 +197,13 @@ internal class DesktopVideoPlayer(
         this.index = index
         jumped(old, PlayerPosition(currentItem?.videoId, 0), PositionJumpReason.Seek)
         listeners.forEach { it.onItemTransition(currentItem, ItemTransitionReason.Seek) }
+        playWhenReady = true
         open(0)
-        play()
     }
 
     override fun selectSubtitle(key: String?, language: String) {
         subtitlesOff = false
         subtitleLanguage = language
-        subtitleKey = key
         showSubtitles(chooseSubtitle(key))
     }
 
@@ -216,78 +214,76 @@ internal class DesktopVideoPlayer(
 
     /** Stops for good; the app is quitting. */
     fun release() {
-        openJob?.cancel()
-        seekJob?.cancel()
+        pendingOpen?.cancel()
+        startJob?.cancel()
         subtitleJob?.cancel()
+        engine?.listener = null
+        engine?.release()
+        engine = null
         proxy.close()
-        state.dispose()
     }
 
     private fun here() = PlayerPosition(currentItem?.videoId, positionMs)
 
-    private fun fail(error: PlayerError, why: String = error.toString()) {
-        Log.w(TAG, "Can't play ${currentItem?.videoId}: $why")
-        ownError = error
+    private fun resetPlayback() {
+        suspectJob?.cancel()
+        started = false
+        lastTime = -1L
+        opening = null
+        playing = false
+        buffering = false
+        ended = false
+        error = null
+        lastSeek = null
     }
 
     /** Loads the current item and starts it at [startMs], playing if [playWhenReady]. */
     private fun open(startMs: Long) {
-        openJob?.cancel()
-        seekJob?.cancel()
-        ended = false
-        ownError = null
+        startJob?.cancel()
+        pendingOpen?.cancel()
+        pendingOpen = null
+        resetPlayback()
         val item = currentItem
         if (item == null) {
-            opening = null
-            state.stop()
+            engine?.stop()
+            publish()
             return
+        }
+        val engine = this.engine ?: engines.create().getOrElse {
+            fail(PlayerError.Unavailable, it.message ?: "no engine", source = "libVLC discovery")
+            return
+        }.also {
+            it.listener = EngineEvents()
+            this.engine = it
         }
         opening = startMs
         val uri = when (val source = item.source) {
             is MediaSource.Local -> source.file.toURI().toString()
             is MediaSource.Remote -> proxy.register(source.url).also { proxyToken = it.token }.url
         }
-        state.openUri(uri, InitialPlayerState.PAUSE)
-        showSubtitles(if (subtitlesOff) null else chooseSubtitle(null))
-        openJob = scope.launch {
-            val loaded = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
-                snapshotFlow { state.duration > 0 || state.error != null || ownError != null }.first { it }
-            }
-            if (loaded == null) fail(PlayerError.Network, "nothing loaded")
-            state.error?.let { Log.w(TAG, "The player failed to open the video: $it") }
-            if (loaded == null || state.error != null || ownError != null) {
-                opening = null
-                return@launch
-            }
-            val start = opening ?: 0
-            if (start > 0) {
-                state.seekTo(start.toFloat() / durationMs * 1000f)
-                settle()
-            }
-            // Until frames arrive the position reads 0 (even after that seek), so the start is reported meanwhile.
-            while (true) {
-                snapshotFlow { playWhenReady }.first { it }
-                state.play()
-                val started = withTimeoutOrNull(START_TIMEOUT_MS) {
-                    snapshotFlow { state.currentTime > 0.0 || !playWhenReady || state.error != null || ownError != null }.first { it }
-                }
-                if (ownError != null) break
-                if (started == null || state.error != null) {
-                    // AVFoundation can take the stream's index and still not play it ("Cannot Open"), with no error.
-                    fail(state.error?.let { PlayerError.Playback(it.toString()) } ?: PlayerError.Playback("didn't start"), "playback didn't start")
-                    break
-                }
-                if (state.currentTime > 0.0) break
-            }
-            opening = null
+        pendingOpen = scope.launch {
+            pendingOpen = null
+            // A seek asked for meanwhile moved the start.
+            engine.open(uri, opening ?: startMs, paused = !playWhenReady)
         }
+        showSubtitles(if (subtitlesOff) null else chooseSubtitle(null))
+        watchStart()
+        publish()
     }
 
-    /** Waits for a seek to show its frame, so the position read after is where it landed. */
-    private suspend fun settle() {
-        delay(SETTLE_MS)
-        withTimeoutOrNull(SEEK_TIMEOUT_MS) { snapshotFlow { state.isLoading }.first { !it } }
-        delay(SETTLE_MS)
+    /**
+     * Turns a start that never comes into an error. libVLC reports most
+     * failures itself; this catches a stream that loads and then stalls.
+     */
+    private fun watchStart() {
+        startJob?.cancel()
+        if (!playWhenReady || playing) return
+        startJob = scope.launch {
+            delay(START_TIMEOUT_MS)
+            if (playWhenReady && !playing && error == null && !ended) {
+                fail(PlayerError.Playback("didn't start"), "nothing played for ${START_TIMEOUT_MS / 1000} s", source = "the start watchdog")
+            }
+        }
     }
 
     private fun onItemEnded() {
@@ -299,23 +295,120 @@ internal class DesktopVideoPlayer(
             open(0)
         } else {
             ended = true
+            playing = false
             listeners.forEach { it.onEnded() }
-            publishStatus(computeStatus())
+            publish()
         }
     }
 
-    private fun computeStatus(): PlayerStatus {
-        val error = ownError ?: state.error?.let { PlayerError.Playback(it.toString()) }
+    /** libVLC's events, on its threads: each is handled on the main thread. */
+    private inner class EngineEvents : PlaybackEngine.Listener {
+        private fun onMain(block: () -> Unit) {
+            scope.launch { block() }
+        }
+
+        override fun onPlaying() = onMain {
+            playing = true
+            buffering = false
+            started = true
+            startJob?.cancel()
+            showStarted()
+            recovered()
+            publish()
+        }
+
+        override fun onTime(positionMs: Long) = onMain {
+            if (lastTime >= 0 && positionMs != lastTime) {
+                started = true
+                recovered()
+            }
+            lastTime = positionMs
+        }
+
+        override fun onPaused() = onMain {
+            playing = false
+            showStarted()
+            publish()
+        }
+
+        override fun onLength(durationMs: Long) = onMain { publish() }
+
+        override fun onVideoSize(width: Int, height: Int) = onMain {
+            val size = VideoSize(width, height)
+            if (size != lastSize) {
+                lastSize = size
+                listeners.forEach { it.onVideoSizeChanged(size) }
+            }
+        }
+
+        override fun onBuffering(percent: Float) = onMain {
+            buffering = percent < 100f
+            publish()
+        }
+
+        override fun onEnded() = onMain { onItemEnded() }
+
+        override fun onError(message: String) = onMain { fail(PlayerError.Playback(message), message, source = "libVLC") }
+    }
+
+    /** The item is showing: a seek asked for while it opened is made now. */
+    private fun showStarted() {
+        val start = opening ?: return
+        opening = null
+        val engineAt = engine?.positionMs ?: 0
+        if (abs(engineAt - start) > SEEK_TOLERANCE_MS) {
+            engine?.seekTo(start)
+            lastSeek = start
+            lastSeekAt = clock()
+        }
+    }
+
+    /**
+     * [error] from [source]. Before the picture shows it stops playback; after,
+     * libVLC and the proxy report problems it gets past (a dropped range, a
+     * probe past the end), so it only shows if playback then stops moving.
+     */
+    private fun fail(error: PlayerError, why: String, source: String) {
+        val id = currentItem?.videoId
+        if (started && error != PlayerError.Unavailable) {
+            Log.w(TAG, "$source reported a problem while playing $id ($why); shown only if playback stops")
+            val at = engine?.positionMs
+            suspectJob?.cancel()
+            suspectJob = scope.launch {
+                delay(SUSPECT_MS)
+                if (playWhenReady && engine?.positionMs == at && this@DesktopVideoPlayer.error == null) {
+                    Log.w(TAG, "Playback of $id stopped after $source reported $why")
+                    this@DesktopVideoPlayer.error = error
+                    publish()
+                }
+            }
+            return
+        }
+        Log.w(TAG, "Can't play $id: $source reported $why")
+        this.error = error
+        startJob?.cancel()
+        publish()
+    }
+
+    /** Playback moves on: whatever was reported didn't stop it. */
+    private fun recovered() {
+        suspectJob?.cancel()
+        val shown = error ?: return
+        if (shown == PlayerError.Unavailable) return
+        Log.w(TAG, "Playing ${currentItem?.videoId} after all; clearing $shown")
+        error = null
+        publish()
+    }
+
+    private fun publish() {
         val playbackState = when {
             index < 0 || error != null -> PlaybackState.Idle
             ended -> PlaybackState.Ended
-            opening != null || state.isLoading -> PlaybackState.Buffering
+            opening != null || buffering -> PlaybackState.Buffering
             else -> PlaybackState.Ready
         }
-        return PlayerStatus(playbackState, playbackState == PlaybackState.Ready && state.isPlaying, error)
-    }
-
-    private fun publishStatus(status: PlayerStatus) {
+        // libVLC reports buffering often while it plays; it doesn't count as stopping (ProgressTracker saves on each stop).
+        val status = PlayerStatus(playbackState, playing && opening == null && (playbackState == PlaybackState.Ready || playbackState == PlaybackState.Buffering), error)
         if (status == lastStatus) return
         val wasPlaying = lastStatus.isPlaying
         lastStatus = status
@@ -358,9 +451,11 @@ internal class DesktopVideoPlayer(
     private companion object {
         const val TAG = "DesktopVideoPlayer"
         const val SEEK_INCREMENT_MS = 10_000L
-        const val LOAD_TIMEOUT_MS = 20_000L
         const val START_TIMEOUT_MS = 20_000L
-        const val SEEK_TIMEOUT_MS = 3_000L
-        const val SETTLE_MS = 250L
+
+        /** How long playback may stand still after a reported problem before it's shown. */
+        const val SUSPECT_MS = 8_000L
+        const val SEEK_CATCH_UP_MS = 1_000L
+        const val SEEK_TOLERANCE_MS = 1_500L
     }
 }

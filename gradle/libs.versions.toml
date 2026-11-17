@@ -39,7 +39,7 @@ composeMultiplatform = "1.12.2"
 cmpMaterial3 = "1.12.0-alpha03" # Expressive APIs (Jetpack material3 1.5.0-alpha22 underneath)
 cmpLifecycle = "2.11.0"
 cmpNavigation3 = "1.2.0"
-composemediaplayer = "0.11.4" # desktop player, desktopMain only
+vlcj = "4.12.1" # desktop player on libVLC 3.0.x (bundled by :desktop), desktopMain only
 javaxInject = "1"
 javaKeyring = "1.0.4" # desktop: the session key in the OS keychain
 
@@ -109,7 +109,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
-composemediaplayer = { module = "io.github.kdroidfilter:composemediaplayer", version.ref = "composemediaplayer" }
+vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
 java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "javaKeyring" }
 
 # Compose Multiplatform (#2)

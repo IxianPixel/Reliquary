@@ -17,6 +17,7 @@
     <string name="player_synced_note">Your place is saved on this device and synced to the server automatically.</string>
     <string name="player_pending_note">Your place is saved on this device. It syncs when the server can be reached.</string>
     <string name="player_error">Can’t play this video</string>
+    <string name="player_unavailable">Video playback isn’t available: the VLC libraries are missing</string>
     <string name="player_not_found">This video isn’t on this device yet. Connect to your server to load it.</string>
     <string name="player_download">Download</string>
     <string name="player_download_retry">Retry download</string>

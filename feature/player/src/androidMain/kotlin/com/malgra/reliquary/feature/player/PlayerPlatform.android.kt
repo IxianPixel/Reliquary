@@ -120,3 +120,6 @@ internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
         }
     }
 }
+
+// A tap toggles the controls on a phone; there's no pointer to follow.
+internal actual fun Modifier.pointerActivity(hideCursor: Boolean, onMove: () -> Unit): Modifier = this

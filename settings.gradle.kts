@@ -13,6 +13,11 @@ pluginManagement {
     }
 }
 
+// The desktop packaging needs a JDK 21 with jpackage; Gradle fetches one if it's missing.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {

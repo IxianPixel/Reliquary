@@ -63,6 +63,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -118,6 +119,7 @@ import com.malgra.reliquary.feature.player.resources.player_subtitles
 import com.malgra.reliquary.feature.player.resources.player_subtitles_off
 import com.malgra.reliquary.feature.player.resources.player_synced_note
 import com.malgra.reliquary.feature.player.resources.player_time
+import com.malgra.reliquary.feature.player.resources.player_unavailable
 import com.malgra.reliquary.feature.player.resources.player_watched
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
@@ -182,14 +184,21 @@ internal fun VideoArea(
     onSubtitleChosen: (Subtitle?) -> Unit = {},
 ) {
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
+    // Pointer movement over the video (desktop): each restarts the controls' timer.
+    var pointerMoves by remember { mutableIntStateOf(0) }
     Box(
         modifier = modifier
             .background(Color.Black)
             .then(
                 if (interactive) {
-                    Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                        controlsVisible = !controlsVisible
-                    }
+                    Modifier
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                            controlsVisible = !controlsVisible
+                        }
+                        .pointerActivity(hideCursor = fullScreen && !controlsVisible) {
+                            controlsVisible = true
+                            pointerMoves++
+                        }
                 } else {
                     Modifier
                 },
@@ -205,7 +214,7 @@ internal fun VideoArea(
         var scrub by remember { mutableStateOf<Float?>(null) }
         val sizes = if (fullScreen) FullScreenControls else CompactControls
         KeepScreenOn(status.isPlaying)
-        LaunchedEffect(controlsVisible, status.isPlaying, scrub != null) {
+        LaunchedEffect(controlsVisible, status.isPlaying, scrub != null, pointerMoves) {
             if (controlsVisible && status.isPlaying && scrub == null) {
                 delay(CONTROLS_TIMEOUT_MS)
                 controlsVisible = false
@@ -218,12 +227,13 @@ internal fun VideoArea(
         if (status.state == PlaybackState.Buffering) {
             LoadingIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(sizes.play))
         }
-        status.error?.let {
+        status.error?.let { error ->
             Text(
-                stringResource(Res.string.player_error),
+                stringResource(if (error == PlayerError.Unavailable) Res.string.player_unavailable else Res.string.player_error),
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.align(Alignment.Center),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
             )
         }
 

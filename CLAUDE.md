@@ -43,7 +43,7 @@ are JVMs, so `commonMain` may use JDK and JVM libraries (OkHttp, `java.time`,
 | `core:designsystem` | Theme, colours, `ReliquaryIcons` (Compose resource drawables; `RemoteActionIcons` keeps Android copies for picture-in-picture). |
 | `core:ui` | Shared composables: video rows, thumbnails, Keep offline sheet, `StatusBarScrim`, local network prompt. `ViewModelGraph` + `injectedViewModel()`: how screens get ViewModels on both platforms. |
 | `core:shell` | Navigation destinations and the shell's ViewModels, shared by `app` and `desktop`. |
-| `feature:*` | One screen each; ViewModels in `commonMain`, Hilt `@IntoMap` bindings in `androidMain`. `feature:player` owns the `VideoPlayer` abstraction and the player sheet: media3 and `PlaybackService` on Android, ComposeMediaPlayer behind a loopback auth proxy (`MediaProxy`) on desktop. |
+| `feature:*` | One screen each; ViewModels in `commonMain`, Hilt `@IntoMap` bindings in `androidMain`. `feature:player` owns the `VideoPlayer` abstraction and the player sheet: media3 and `PlaybackService` on Android, libVLC (vlcj, bundled by `:desktop` from `desktop/vlc.properties`) behind a loopback auth proxy (`MediaProxy`) on desktop. |
 | `app` | Android shell: `NavigationSuiteScaffold`, Navigation 3 back stack, player sheet over everything, Hilt app module, `HiltViewModelGraph`. |
 | `desktop` | Desktop app (macOS, Windows, Linux): window, hand-wired `AppGraph` + `DesktopViewModelGraph`, single instance, packaging. |
 | `build-logic` | Convention plugins (`reliquary.kmp.library`, `.kmp.compose`, `.kmp.hilt`, `.kmp.feature`, plus the Android ones); versions live in `gradle/libs.versions.toml`. |

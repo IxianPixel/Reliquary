@@ -70,6 +70,9 @@ sealed interface PlayerError {
     /** The server couldn't be reached. */
     data object Network : PlayerError
 
+    /** The platform can't play video at all (desktop: the VLC libraries are missing). */
+    data object Unavailable : PlayerError
+
     data class Playback(val message: String?) : PlayerError
 }
 
