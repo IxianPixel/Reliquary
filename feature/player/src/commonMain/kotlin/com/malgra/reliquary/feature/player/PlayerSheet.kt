@@ -482,8 +482,14 @@ private fun WidePlayer(
     val current = video
     val loadedComments = (comments as? CommentsState.Loaded)?.takeIf { it.comments.isNotEmpty() }
     var showingComments by rememberSaveable(current?.id) { mutableStateOf(false) }
+    val seek = rememberTimestampSeek(player, current?.id)
     if (current != null && showingComments && loadedComments != null) {
-        CommentsSheet(loadedComments, onDismiss = { showingComments = false })
+        CommentsSheet(
+            loadedComments,
+            durationMs = current.duration.inWholeMilliseconds,
+            onDismiss = { showingComments = false },
+            onSeek = seek,
+        )
     }
     val padding = PaddingValues(start = WideGutter, end = WideGutter, bottom = WideGutter)
     val info: LazyListScope.() -> Unit = {
@@ -501,6 +507,7 @@ private fun WidePlayer(
                 onOpenChannel = onOpenChannel,
                 comments = loadedComments,
                 onShowComments = { showingComments = true },
+                onSeek = seek,
             )
         } else if (load.unavailable) {
             item(key = "unavailable") {
@@ -553,6 +560,21 @@ private fun WidePlayer(
 private fun LazyListScope.videoItem(videoArea: @Composable (Modifier) -> Unit) {
     item(key = "video") { videoArea(Modifier.edgeToEdgeVideo(WideGutter)) }
 }
+
+/**
+ * Plays from a timestamp tapped in the description or a comment. Only while
+ * [videoId] is the one in the player, so a stale screen can't seek another video.
+ */
+@Composable
+private fun rememberTimestampSeek(player: VideoPlayer, videoId: String?): (Long) -> Unit =
+    remember(player, videoId) {
+        { positionMs ->
+            if (videoId != null && player.currentItem?.videoId == videoId) {
+                player.seekTo(positionMs)
+                player.play()
+            }
+        }
+    }
 
 /** The mini-player's ✕ and the "Close" accessibility action: slide away and stop. */
 private fun PlayerSheetState.dismiss(player: VideoPlayer) {
@@ -617,6 +639,7 @@ private fun PlayerDetails(
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val similar by viewModel.similar.collectAsStateWithLifecycle()
     val current = video
+    val seek = rememberTimestampSeek(player, current?.id)
     when {
         current != null -> Details(
             video = current,
@@ -631,6 +654,7 @@ private fun PlayerDetails(
             onOpenChannel = onOpenChannel,
             queue = queue,
             onPlayQueued = player::playItem,
+            onSeek = seek,
             modifier = Modifier.fillMaxSize(),
             comments = comments,
             similar = similar,

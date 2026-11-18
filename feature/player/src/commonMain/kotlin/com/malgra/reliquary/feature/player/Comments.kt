@@ -20,9 +20,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +46,7 @@ import com.malgra.reliquary.feature.player.resources.player_comment_likes
 import com.malgra.reliquary.feature.player.resources.player_comments
 import com.malgra.reliquary.feature.player.resources.player_hide_replies
 import com.malgra.reliquary.feature.player.resources.player_replies
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -77,11 +81,27 @@ internal fun CommentsRow(comments: CommentsState.Loaded, onOpen: () -> Unit, mod
     }
 }
 
-/** All the saved comments, each with its replies folded away until asked for. */
+/**
+ * All the saved comments, each with its replies folded away until asked for.
+ * A timestamp in one seeks the video and closes the sheet, so you see it play.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun CommentsSheet(comments: CommentsState.Loaded, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+internal fun CommentsSheet(
+    comments: CommentsState.Loaded,
+    durationMs: Long,
+    onDismiss: () -> Unit,
+    onSeek: (positionMs: Long) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    val seek: (Long) -> Unit = remember(onSeek, onDismiss) {
+        { positionMs ->
+            onSeek(positionMs)
+            scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+        }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         LazyColumn(Modifier.navigationBarsPadding()) {
             item(key = "title") {
                 Text(
@@ -93,17 +113,17 @@ internal fun CommentsSheet(comments: CommentsState.Loaded, onDismiss: () -> Unit
                 )
             }
             items(comments.comments, key = { it.id }) { comment ->
-                CommentThread(comment)
+                CommentThread(comment, durationMs, seek)
             }
         }
     }
 }
 
 @Composable
-private fun CommentThread(comment: Comment) {
+private fun CommentThread(comment: Comment, durationMs: Long, onSeek: (Long) -> Unit) {
     var showReplies by rememberSaveable(comment.id) { mutableStateOf(false) }
     Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-        CommentItem(comment, avatarSize = 32)
+        CommentItem(comment, avatarSize = 32, durationMs, onSeek)
         if (comment.replies.isNotEmpty()) {
             TextButton(onClick = { showReplies = !showReplies }, modifier = Modifier.padding(start = 34.dp)) {
                 Icon(
@@ -122,7 +142,7 @@ private fun CommentThread(comment: Comment) {
             }
             if (showReplies) {
                 Column(Modifier.padding(start = 44.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    comment.replies.forEach { reply -> CommentItem(reply, avatarSize = 24) }
+                    comment.replies.forEach { reply -> CommentItem(reply, avatarSize = 24, durationMs, onSeek) }
                 }
             }
         }
@@ -130,7 +150,7 @@ private fun CommentThread(comment: Comment) {
 }
 
 @Composable
-private fun CommentItem(comment: Comment, avatarSize: Int) {
+private fun CommentItem(comment: Comment, avatarSize: Int, durationMs: Long, onSeek: (Long) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         AuthorInitial(comment.author, Modifier.size(avatarSize.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -164,7 +184,7 @@ private fun CommentItem(comment: Comment, avatarSize: Int) {
                     )
                 }
             }
-            Text(comment.text, style = MaterialTheme.typography.bodyMedium)
+            Text(rememberTimestampedText(comment.text, durationMs, onSeek), style = MaterialTheme.typography.bodyMedium)
             val likes = comment.likeCount?.takeIf { it > 0 }
             if (likes != null || comment.favorited) {
                 Text(

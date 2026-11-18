@@ -51,8 +51,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -156,6 +159,9 @@ private fun List<SponsorSegment>.toFractions(durationMs: Long): List<ClosedFloat
 /** The seek bar's touch height. */
 private val SeekBarHeight = 24.dp
 
+/** The break in the seek bar between chapters. */
+private val ChapterGap = 2.dp
+
 /** Space between captions and the bottom edge (and its progress line) while the controls are hidden. */
 private val CaptionGap = 16.dp
 
@@ -246,6 +252,7 @@ internal fun VideoArea(
 
         val duration = progress.durationMs.coerceAtLeast(0)
         val played = if (duration > 0) (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        val chapters = remember(video?.description, duration) { parseChapters(video?.description, duration) }
         val showControls = controlsVisible || !status.isPlaying || scrub != null
 
         // Captions keep clear of the progress line, and move up past the time row and seek bar while they show.
@@ -299,6 +306,7 @@ internal fun VideoArea(
                 onMinimise = onMinimise,
                 subtitles = video?.subtitles.orEmpty(),
                 segments = video?.sponsorSegments.orEmpty().toFractions(duration),
+                chapters = chapters,
                 onSubtitleChosen = onSubtitleChosen,
             )
         }
@@ -379,6 +387,7 @@ private fun Controls(
     subtitles: List<Subtitle>,
     onSubtitleChosen: (Subtitle?) -> Unit,
     segments: List<ClosedFloatingPointRange<Float>>,
+    chapters: List<Chapter>,
 ) {
     Box(
         Modifier
@@ -436,13 +445,19 @@ private fun Controls(
                 modifier = Modifier.padding(start = if (fullScreen) 16.dp else 12.dp, end = 4.dp),
             ) {
                 Text(
-                    stringResource(
-                        Res.string.player_time,
-                        formatDuration(positionMs.coerceAtLeast(0).milliseconds),
-                        formatDuration(durationMs.milliseconds),
+                    metaLine(
+                        stringResource(
+                            Res.string.player_time,
+                            formatDuration(positionMs.coerceAtLeast(0).milliseconds),
+                            formatDuration(durationMs.milliseconds),
+                        ),
+                        // Follows a drag on the seek bar, so you can scrub to a chapter.
+                        chapters.at(positionMs)?.title?.takeIf { it.isNotBlank() },
                     ),
                     color = Color.White,
                     style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 if (onToggleTheatre != null) {
@@ -474,6 +489,9 @@ private fun Controls(
                 onScrub = onScrub,
                 onScrubEnd = onScrubEnd,
                 segments = segments,
+                chapterStarts = remember(chapters, durationMs) {
+                    if (durationMs > 0) chapters.drop(1).map { it.startMs.toFloat() / durationMs } else emptyList()
+                },
                 // Full width along the video's edge in portrait; inset in full screen.
                 modifier = Modifier.padding(horizontal = if (fullScreen) 16.dp else 0.dp),
             )
@@ -509,7 +527,8 @@ private fun PlayPauseButton(player: VideoPlayer, sizes: ControlSizes) {
 /**
  * A slim seek bar: a thin track with a small knob, in a 24dp-tall touch area.
  * Tap to jump or drag to scrub; [onScrubEnd] commits the seek. TalkBack can
- * read and set the position.
+ * read and set the position. [chapterStarts] (0..1) break the track into
+ * chapters, as on YouTube.
  */
 @Composable
 private fun SeekBar(
@@ -521,6 +540,7 @@ private fun SeekBar(
     onScrubEnd: () -> Unit,
     modifier: Modifier = Modifier,
     segments: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    chapterStarts: List<Float> = emptyList(),
 ) {
     val label = stringResource(Res.string.player_seek)
     var width by remember { mutableIntStateOf(1) }
@@ -572,13 +592,26 @@ private fun SeekBar(
             val x = start + (end - start) * fraction.coerceIn(0f, 1f)
             val y = size.height / 2
             val stroke = track.toPx()
-            drawLine(Color.White.copy(alpha = 0.3f), Offset(start, y), Offset(end, y), stroke, StrokeCap.Round)
-            drawLine(OverlayColors.Progress, Offset(start, y), Offset(x, y), stroke, StrokeCap.Round)
-            // SponsorBlock segments, drawn over the progress as in the mockup.
-            for (segment in segments) {
-                val from = start + (end - start) * segment.start
-                val to = start + (end - start) * segment.endInclusive
-                drawLine(OverlayColors.SponsorSegment, Offset(from, y), Offset(to, y), stroke, StrokeCap.Butt)
+            // The track in one piece per chapter. A clip rather than erasing the gaps: a cleared
+            // blend mode stopped the desktop video drawing.
+            val gap = ChapterGap.toPx()
+            val pieces = Path()
+            var pieceStart = 0f
+            for (chapterStart in chapterStarts) {
+                val gapX = start + (end - start) * chapterStart
+                pieces.addRect(Rect(pieceStart, 0f, gapX - gap / 2, size.height))
+                pieceStart = gapX + gap / 2
+            }
+            pieces.addRect(Rect(pieceStart, 0f, size.width, size.height))
+            clipPath(pieces) {
+                drawLine(Color.White.copy(alpha = 0.3f), Offset(start, y), Offset(end, y), stroke, StrokeCap.Round)
+                drawLine(OverlayColors.Progress, Offset(start, y), Offset(x, y), stroke, StrokeCap.Round)
+                // SponsorBlock segments, drawn over the progress as in the mockup.
+                for (segment in segments) {
+                    val from = start + (end - start) * segment.start
+                    val to = start + (end - start) * segment.endInclusive
+                    drawLine(OverlayColors.SponsorSegment, Offset(from, y), Offset(to, y), stroke, StrokeCap.Butt)
+                }
             }
             if (enabled) drawCircle(OverlayColors.Progress, radius = knob.toPx() / 2, center = Offset(x, y))
         }
@@ -597,6 +630,7 @@ internal fun Details(
     onOpenChannel: (String) -> Unit,
     queue: PlayQueue?,
     onPlayQueued: (index: Int) -> Unit,
+    onSeek: (positionMs: Long) -> Unit,
     modifier: Modifier = Modifier,
     comments: CommentsState = CommentsState.Loading,
     similar: List<Video> = emptyList(),
@@ -605,7 +639,12 @@ internal fun Details(
     var showingComments by rememberSaveable(video.id) { mutableStateOf(false) }
     val loadedComments = (comments as? CommentsState.Loaded)?.takeIf { it.comments.isNotEmpty() }
     if (showingComments && loadedComments != null) {
-        CommentsSheet(loadedComments, onDismiss = { showingComments = false })
+        CommentsSheet(
+            loadedComments,
+            durationMs = video.duration.inWholeMilliseconds,
+            onDismiss = { showingComments = false },
+            onSeek = onSeek,
+        )
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -622,6 +661,7 @@ internal fun Details(
             onOpenChannel = onOpenChannel,
             comments = loadedComments,
             onShowComments = { showingComments = true },
+            onSeek = onSeek,
         )
         relatedVideos(video, queue, onPlayQueued, similar, onOpenVideo)
     }
@@ -631,6 +671,7 @@ internal fun Details(
  * The title, actions, channel, description and comments under the video. Used
  * under the video on a phone, and under it in the left column on a wide window.
  * [comments] is null unless the server saved some, so there's nothing to open.
+ * [onSeek] is for timestamps in the description.
  */
 internal fun LazyListScope.videoInfo(
     video: Video,
@@ -642,6 +683,7 @@ internal fun LazyListScope.videoInfo(
     onOpenChannel: (String) -> Unit,
     comments: CommentsState.Loaded?,
     onShowComments: () -> Unit,
+    onSeek: (positionMs: Long) -> Unit,
 ) {
     item(key = "title") {
         Column {
@@ -684,7 +726,7 @@ internal fun LazyListScope.videoInfo(
         }
     }
     if (!video.description.isNullOrBlank()) {
-        item(key = "description") { Description(video.description!!) }
+        item(key = "description") { Description(video.description!!, video.duration.inWholeMilliseconds, onSeek) }
     }
     item(key = "sync") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -862,8 +904,9 @@ private fun ChannelRow(video: Video, channel: Channel?, onClick: () -> Unit) {
     }
 }
 
+/** Collapsed to two lines until tapped; its timestamps seek the video. */
 @Composable
-private fun Description(text: String) {
+private fun Description(text: String, durationMs: Long, onSeek: (positionMs: Long) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Surface(
         onClick = { expanded = !expanded },
@@ -873,7 +916,7 @@ private fun Description(text: String) {
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
-                text,
+                rememberTimestampedText(text, durationMs, onSeek),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,

@@ -27,6 +27,10 @@
   unsigned, so macOS asks you to right-click the app and choose Open, or run
   `xattr -dr com.apple.quarantine Reliquary.app`, and Windows shows a
   SmartScreen warning: choose More info, then Run anyway. (#29)
+- **Timestamps and chapters.** Timestamps in a video's description and
+  comments are now links: tap one to play from there. Chapters listed in the
+  description break up the seek bar, and the current chapter's name shows
+  beside the time, following the knob as you drag. (#21)
 
 ### Updated
 
