@@ -174,8 +174,7 @@ private fun remoteAction(context: Context, control: Int, @DrawableRes icon: Int,
 
 /** The video's shape, kept within what Android allows for a picture-in-picture window. */
 private fun aspectRatio(size: VideoSize): Rational {
-    if (size.width <= 0 || size.height <= 0) return Rational(16, 9)
-    val ratio = size.width * size.pixelRatio / size.height
+    val ratio = size.aspectRatio ?: return Rational(16, 9)
     return when {
         ratio > MAX_RATIO -> Rational(239, 100)
         ratio < 1 / MAX_RATIO -> Rational(100, 239)

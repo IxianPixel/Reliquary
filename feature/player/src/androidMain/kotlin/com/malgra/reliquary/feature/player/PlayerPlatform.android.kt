@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
@@ -95,36 +98,48 @@ internal actual fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit) = Ba
 
 /**
  * Full screen is landscape. The full-screen button locks to landscape on
- * purpose; collapsing the player hands the orientation back to the phone.
+ * purpose; collapsing the player hands the orientation back to the phone. A
+ * [portraitVideo] (a Short) goes full screen in portrait instead, where it fits
+ * (#28); turning the phone still gives the landscape one.
  *
  * A tablet doesn't go full screen: it keeps the details beside the video, in
  * either orientation, so there's no full-screen button there.
  */
 @SuppressLint("SourceLockedOrientationActivity")
 @Composable
-internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
+internal actual fun rememberFullScreen(expanded: Boolean, portraitVideo: Boolean): FullScreen {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_WIDTH_DP
     val twoPanes = rememberTwoPanes()
     val tabletPanes = tablet && twoPanes
     val activity = LocalActivity.current
+    // The orientation can't tell us about portrait full screen, so it's kept here.
+    var portraitFullScreen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(expanded) {
-        if (!expanded) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!expanded) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            portraitFullScreen = false
+        }
+    }
+    // The queue moved on to a landscape video: back to the sheet rather than a letterbox.
+    LaunchedEffect(portraitVideo) {
+        if (!portraitVideo) portraitFullScreen = false
     }
     return object : FullScreen {
-        override val isFullScreen = landscape && !tabletPanes
+        override val isFullScreen = (landscape || portraitFullScreen) && !tabletPanes
         override val canToggle = !tabletPanes
 
         override fun toggle() {
-            activity?.requestedOrientation = if (landscape) {
-                ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            when {
+                landscape -> exit()
+                portraitVideo -> portraitFullScreen = !portraitFullScreen
+                else -> activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             }
         }
 
         override fun exit() {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+            if (landscape) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+            portraitFullScreen = false
         }
     }
 }

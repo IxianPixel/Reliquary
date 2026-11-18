@@ -128,9 +128,12 @@ internal actual fun SystemBarsHidden(hidden: Boolean) = Unit
 @Composable
 internal actual fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit) = BackHandler(enabled, onBack)
 
-/** Full screen is the window's; leaving it restores the window as it was, as does leaving the expanded player. */
+/**
+ * Full screen is the window's; leaving it restores the window as it was, as does
+ * leaving the expanded player. A portrait video is simply letterboxed in it.
+ */
 @Composable
-internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
+internal actual fun rememberFullScreen(expanded: Boolean, portraitVideo: Boolean): FullScreen {
     val window = LocalPlayerWindowState.current
     var before by remember { mutableStateOf(WindowPlacement.Floating) }
     val isFullScreen = window?.placement == WindowPlacement.Fullscreen

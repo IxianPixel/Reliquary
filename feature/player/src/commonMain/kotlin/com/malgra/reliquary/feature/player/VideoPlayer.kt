@@ -2,6 +2,7 @@ package com.malgra.reliquary.feature.player
 
 import com.malgra.reliquary.core.model.SponsorSegment
 import com.malgra.reliquary.core.model.Video
+import com.malgra.reliquary.core.model.VideoType
 import java.io.File
 
 // The player as the shared code sees it (#2): media3 on Android, ComposeMediaPlayer on desktop.
@@ -80,10 +81,21 @@ data class PlayerStatus(val state: PlaybackState, val isPlaying: Boolean, val er
 
 /** The picture's size in pixels, and the width of a pixel over its height. */
 data class VideoSize(val width: Int, val height: Int, val pixelRatio: Float = 1f) {
+    /** Width over height as shown, or null while unknown. */
+    val aspectRatio: Float?
+        get() = if (width > 0 && height > 0) width * pixelRatio / height else null
+
     companion object {
         val Unknown = VideoSize(0, 0)
     }
 }
+
+/**
+ * The shape to show a video in: its picture's once the player knows it, until
+ * then a Short's 9:16 or the usual 16:9.
+ */
+internal fun videoAspectRatio(size: VideoSize, type: VideoType?): Float =
+    size.aspectRatio ?: if (type == VideoType.Shorts) 9f / 16f else 16f / 9f
 
 /**
  * Where playback is: a video (null when nothing is loaded) and a position in it.

@@ -1,5 +1,6 @@
 package com.malgra.reliquary.feature.player
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +67,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.ui.formatDuration
@@ -219,10 +223,6 @@ fun PlayerSheet(
             1f
         }
         val expanded = draggable.settledValue == SheetPosition.Expanded && f > 0.99f
-        val fullScreen = rememberFullScreen(expanded)
-        val landscape = fullScreen.isFullScreen
-
-        if (!showing) return@BoxWithConstraints
 
         val request = state.request
         val viewModel = request?.let { r ->
@@ -230,11 +230,18 @@ fun PlayerSheet(
                 it.create(r.videoId, r.playlistId)
             }
         }
+        val video by viewModel?.video?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
+        val videoSize by videoSizeState(player)
+        val aspectRatio = videoAspectRatio(videoSize, video?.type)
+        val fullScreen = rememberFullScreen(expanded, portraitVideo = aspectRatio < 1f)
+        val isFullScreen = fullScreen.isFullScreen
+
+        if (!showing) return@BoxWithConstraints
+
         val load = viewModel?.let { rememberPlaybackLoad(it, request, player) }
 
         // In picture-in-picture the window is just the video.
         if (inPictureInPicture) {
-            val video by viewModel?.video?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
             VideoArea(
                 player = player,
                 video = video,
@@ -247,28 +254,35 @@ fun PlayerSheet(
             return@BoxWithConstraints
         }
 
-        PlayerBackHandler(enabled = expanded && !landscape) { state.collapse() }
-        PlayerBackHandler(enabled = expanded && landscape) { fullScreen.exit() }
-        SystemBarsHidden(hidden = expanded && landscape)
+        PlayerBackHandler(enabled = expanded && !isFullScreen) { state.collapse() }
+        PlayerBackHandler(enabled = expanded && isFullScreen) { fullScreen.exit() }
+        SystemBarsHidden(hidden = expanded && isFullScreen)
         val toggleFullScreen = fullScreen::toggle
 
-        if (expanded && landscape) {
-            val video by viewModel?.video?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
-            VideoArea(
-                player = player,
-                video = video,
-                fullScreen = true,
-                onToggleFullScreen = toggleFullScreen,
-                onMinimise = state::collapse,
-                modifier = Modifier
+        if (expanded && isFullScreen) {
+            // Clear of the camera cutout, which a portrait video's top controls would sit under.
+            Box(
+                Modifier
                     .fillMaxSize()
-                    .onGloballyPositioned { videoBounds = it.boundsInWindow() },
-                fullScreenAvailable = fullScreen.canToggle,
-                onSubtitleChosen = { subtitle ->
-                    if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
-                    viewModel?.rememberSubtitleLanguage(subtitle?.language)
-                },
-            )
+                    .background(Color.Black)
+                    .windowInsetsPadding(WindowInsets.displayCutout),
+            ) {
+                VideoArea(
+                    player = player,
+                    video = video,
+                    fullScreen = true,
+                    onToggleFullScreen = toggleFullScreen,
+                    onMinimise = state::collapse,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { videoBounds = it.boundsInWindow() },
+                    fullScreenAvailable = fullScreen.canToggle,
+                    onSubtitleChosen = { subtitle ->
+                        if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
+                        viewModel?.rememberSubtitleLanguage(subtitle?.language)
+                    },
+                )
+            }
             SponsorSkipSnackbar(
                 player,
                 active = true,
@@ -283,7 +297,6 @@ fun PlayerSheet(
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
         if (expanded && twoPanes && viewModel != null && load != null) {
-            val video by viewModel.video.collectAsStateWithLifecycle()
             WidePlayer(
                 viewModel = viewModel,
                 load = load,
@@ -331,7 +344,9 @@ fun PlayerSheet(
         val fullHeight = maxHeight
         val margin = lerp(MiniMargin, 0.dp, f)
         val containerWidth = maxWidth - margin * 2
-        val fullVideoHeight = containerWidth * 9f / 16f
+        // A portrait video (a Short) gets a taller box, up to a share of the screen; the rest stay 16:9.
+        val boxAspectRatio by animateFloatAsState(if (aspectRatio < 1f) aspectRatio else 16f / 9f)
+        val fullVideoHeight = min(containerWidth / boxAspectRatio, (fullHeight - statusTop) * PORTRAIT_VIDEO_SHARE)
         val openLabel = stringResource(Res.string.mini_player_open, nowPlaying?.title.orEmpty())
         val closeLabel = stringResource(Res.string.mini_player_close)
 
@@ -376,7 +391,6 @@ fun PlayerSheet(
             // The video: one surface that moves between the mini-player's corner and full width.
             val videoX = lerp(8.dp, 0.dp, f)
             val videoY = lerp(8.dp, statusTop, f)
-            val video by viewModel?.video?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
             Box(
                 Modifier
                     .offset(videoX, videoY)
@@ -584,6 +598,9 @@ private fun PlayerSheetState.dismiss(player: VideoPlayer) {
 
 private const val MINI_FADE = 0.3f
 private const val DETAILS_FADE = 0.5f
+
+/** The most of the screen below the status bar a portrait video takes, leaving room for its details. */
+private const val PORTRAIT_VIDEO_SHARE = 0.6f
 
 /** The share of a wide window's width the video and its details take; the similar videos take the rest. */
 private const val WIDE_MAIN_SHARE = 0.6f

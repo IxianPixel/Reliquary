@@ -42,6 +42,10 @@
 - **Smaller desktop download.** The macOS and Windows apps bundle only the
   libVLC plugins the player uses, so the VLC part of the app is about 22 MB
   instead of 91 MB. (#30)
+- **Shorts play in portrait.** On a phone, Shorts and other portrait videos
+  get a taller video in the player, and full screen fills the screen upright
+  instead of turning to landscape. Turn the phone for landscape full screen as
+  before. (#28)
 
 ### Fixed
 
