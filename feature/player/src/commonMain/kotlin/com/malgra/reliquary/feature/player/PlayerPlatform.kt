@@ -31,10 +31,12 @@ internal expect fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit)
 
 /**
  * Full screen: landscape on a phone, the whole window on desktop. Leaving the
- * expanded player ([expanded] false) leaves it.
+ * expanded player ([expanded] false) leaves it. [canToggle] is false where full
+ * screen isn't offered: a tablet keeps its details beside the video.
  */
 internal interface FullScreen {
     val isFullScreen: Boolean
+    val canToggle: Boolean
     fun toggle()
     fun exit()
 }

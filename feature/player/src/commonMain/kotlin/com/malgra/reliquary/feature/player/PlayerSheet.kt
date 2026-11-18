@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -25,6 +26,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -64,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.malgra.reliquary.core.designsystem.icon.ReliquaryIcons
 import com.malgra.reliquary.core.ui.formatDuration
 import com.malgra.reliquary.core.ui.metaLine
+import com.malgra.reliquary.core.ui.rememberTwoPanes
 import com.malgra.reliquary.core.ui.viewmodel.injectedViewModel
 import com.malgra.reliquary.feature.player.resources.Res
 import com.malgra.reliquary.feature.player.resources.mini_player_close
@@ -158,6 +163,9 @@ fun PlayerSheet(
     // a first open that composed it and asked it to expand in the same frame didn't animate.
     val showing = nowPlaying != null || state.request != null
     val inPictureInPicture = rememberIsInPictureInPicture()
+    // Two panes (a tablet, a foldable or a wide desktop window): the details sit beside the video.
+    val twoPanes = rememberTwoPanes()
+    var theatre by rememberSaveable { mutableStateOf(false) }
     // Where the video is on screen (when the sheet is at rest), for the picture-in-picture window to grow from.
     var videoBounds by remember { mutableStateOf<Rect?>(null) }
     PictureInPictureSupport(player, enabled = showing, sourceBounds = videoBounds)
@@ -255,6 +263,7 @@ fun PlayerSheet(
                 modifier = Modifier
                     .fillMaxSize()
                     .onGloballyPositioned { videoBounds = it.boundsInWindow() },
+                fullScreenAvailable = fullScreen.canToggle,
                 onSubtitleChosen = { subtitle ->
                     if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
                     viewModel?.rememberSubtitleLanguage(subtitle?.language)
@@ -272,6 +281,53 @@ fun PlayerSheet(
         }
 
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+        if (expanded && twoPanes && viewModel != null && load != null) {
+            val video by viewModel.video.collectAsStateWithLifecycle()
+            WidePlayer(
+                viewModel = viewModel,
+                load = load,
+                player = player,
+                theatre = theatre,
+                onOpenChannel = { channelId ->
+                    state.collapse()
+                    onOpenChannel(channelId)
+                },
+                onOpenVideo = { videoId -> state.open(videoId) },
+                videoArea = { modifier ->
+                    Box(modifier.onGloballyPositioned { videoBounds = it.boundsInWindow() }) {
+                        VideoArea(
+                            player = player,
+                            video = video,
+                            fullScreen = false,
+                            onToggleFullScreen = toggleFullScreen,
+                            onMinimise = state::collapse,
+                            modifier = Modifier.fillMaxSize(),
+                            fullScreenAvailable = fullScreen.canToggle,
+                            theatre = theatre,
+                            onToggleTheatre = { theatre = !theatre },
+                            onSubtitleChosen = { subtitle ->
+                                if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
+                                viewModel.rememberSubtitleLanguage(subtitle?.language)
+                            },
+                        )
+                        SponsorSkipSnackbar(
+                            player,
+                            active = true,
+                            // Above the time row and seek bar.
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(top = statusTop),
+            )
+            return@BoxWithConstraints
+        }
         val fullHeight = maxHeight
         val margin = lerp(MiniMargin, 0.dp, f)
         val containerWidth = maxWidth - margin * 2
@@ -337,6 +393,7 @@ fun PlayerSheet(
                     interactive = expanded,
                     smoothResize = true,
                     modifier = Modifier.fillMaxSize(),
+                    fullScreenAvailable = fullScreen.canToggle,
                     onSubtitleChosen = { subtitle ->
                         if (subtitle == null) player.disableSubtitles() else player.selectSubtitle(subtitle.key, subtitle.language)
                         viewModel?.rememberSubtitleLanguage(subtitle?.language)
@@ -396,6 +453,107 @@ fun PlayerSheet(
     }
 }
 
+/** Edge to the window's gutter: the same as the phone's, so the wide layout lines up with it. */
+private val WideGutter = 16.dp
+
+/**
+ * The full player on a wide window. On the left: the video, its title and actions,
+ * channel, description and comments. On the right: "next in" and similar videos.
+ * In theatre mode the video runs the full width and the right column's videos
+ * move under the comments.
+ */
+@Composable
+private fun WidePlayer(
+    viewModel: PlayerViewModel,
+    load: PlaybackLoad,
+    player: VideoPlayer,
+    theatre: Boolean,
+    onOpenChannel: (String) -> Unit,
+    onOpenVideo: (String) -> Unit,
+    videoArea: @Composable (Modifier) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val video by viewModel.video.collectAsStateWithLifecycle()
+    val channel by viewModel.channel.collectAsStateWithLifecycle()
+    val download by viewModel.download.collectAsStateWithLifecycle()
+    val queue by viewModel.queue.collectAsStateWithLifecycle()
+    val comments by viewModel.comments.collectAsStateWithLifecycle()
+    val similar by viewModel.similar.collectAsStateWithLifecycle()
+    val current = video
+    val loadedComments = (comments as? CommentsState.Loaded)?.takeIf { it.comments.isNotEmpty() }
+    var showingComments by rememberSaveable(current?.id) { mutableStateOf(false) }
+    if (current != null && showingComments && loadedComments != null) {
+        CommentsSheet(loadedComments, onDismiss = { showingComments = false })
+    }
+    val padding = PaddingValues(start = WideGutter, end = WideGutter, bottom = WideGutter)
+    val info: LazyListScope.() -> Unit = {
+        if (current != null) {
+            videoInfo(
+                video = current,
+                channel = channel,
+                download = download,
+                onDownload = viewModel::startDownload,
+                onRemoveDownload = viewModel::removeDownload,
+                onSetWatched = { watched ->
+                    if (watched) player.pause()
+                    viewModel.setWatched(watched)
+                },
+                onOpenChannel = onOpenChannel,
+                comments = loadedComments,
+                onShowComments = { showingComments = true },
+            )
+        } else if (load.unavailable) {
+            item(key = "unavailable") {
+                Text(
+                    stringResource(Res.string.player_not_found),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                )
+            }
+        }
+    }
+    val related: LazyListScope.() -> Unit = {
+        if (current != null) relatedVideos(current, queue, player::playItem, similar, onOpenVideo)
+    }
+
+    if (theatre) {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = padding,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            videoItem(videoArea)
+            info()
+            related()
+        }
+    } else {
+        Row(modifier) {
+            LazyColumn(
+                modifier = Modifier.weight(WIDE_MAIN_SHARE),
+                contentPadding = padding,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                videoItem(videoArea)
+                info()
+            }
+            LazyColumn(
+                modifier = Modifier.weight(1f - WIDE_MAIN_SHARE),
+                contentPadding = PaddingValues(WideGutter),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                related()
+            }
+        }
+    }
+}
+
+/** The video as the first item of its column: full width, 16:9, scrolling with what's under it. */
+private fun LazyListScope.videoItem(videoArea: @Composable (Modifier) -> Unit) {
+    item(key = "video") { videoArea(Modifier.edgeToEdgeVideo(WideGutter)) }
+}
+
 /** The mini-player's ✕ and the "Close" accessibility action: slide away and stop. */
 private fun PlayerSheetState.dismiss(player: VideoPlayer) {
     player.clear()
@@ -404,6 +562,9 @@ private fun PlayerSheetState.dismiss(player: VideoPlayer) {
 
 private const val MINI_FADE = 0.3f
 private const val DETAILS_FADE = 0.5f
+
+/** The share of a wide window's width the video and its details take; the similar videos take the rest. */
+private const val WIDE_MAIN_SHARE = 0.6f
 
 /** Loads the request into the player once, then follows the queue as it moves on. */
 private class PlaybackLoad {

@@ -17,7 +17,13 @@ class KeyringSessionCipher : AesGcmSessionCipher() {
 
     // Read once: each keychain read can prompt the user on macOS.
     private val key: SecretKey by lazy {
-        Keyring.create().use { keyring ->
+        val store = try {
+            Keyring.create()
+        } catch (e: Exception) {
+            // Common on Linux desktops without GNOME Keyring or KWallet; say so rather than a bare library error.
+            throw IllegalStateException("No OS keychain is available. On Linux, start a Secret Service such as GNOME Keyring or KWallet.", e)
+        }
+        store.use { keyring ->
             val stored = try {
                 keyring.getPassword(SERVICE, ACCOUNT)
             } catch (_: PasswordAccessException) {

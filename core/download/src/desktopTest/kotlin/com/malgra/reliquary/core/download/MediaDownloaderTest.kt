@@ -74,6 +74,17 @@ class MediaDownloaderTest {
         assertNull(server.takeRequest().headers["Range"])
     }
 
+    @Test fun aFinishedDownloadReplacesAnOlderCopy() = runTest {
+        queued()
+        files.complete("v").writeBytes(ByteArray(5) { 1 })
+        server.enqueue(full())
+
+        assertEquals(MediaDownloader.Outcome.Done, run())
+
+        assertContentEquals(video, files.complete("v").readBytes())
+        assertFalse(files.partial("v").exists())
+    }
+
     @Test fun resumesAfterAnInterruptionWithoutIfRange() = runTest {
         queued()
         // The connection drops part-way through the first response.

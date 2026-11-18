@@ -21,6 +21,32 @@
   Linux, sharing its data, sync and screens with the phone app. So far you can
   sign in, browse your library and play videos, with the same resume,
   progress sync and SponsorBlock skips as the phone. (#2)
+- **Desktop releases.** Each release now attaches the desktop app: a zipped
+  macOS app for Apple silicon and one for Intel, a Windows installer and a
+  Linux .deb, plus the libVLC source the bundled player needs. The builds are
+  unsigned, so macOS asks you to right-click the app and choose Open, or run
+  `xattr -dr com.apple.quarantine Reliquary.app`, and Windows shows a
+  SmartScreen warning: choose More info, then Run anyway. (#29)
+
+### Updated
+
+- **Wide screens.** On tablets, foldables and wide desktop windows, Channels
+  and Playlists sit beside the channel or playlist you open. The player shows
+  the video with its details and comments below it and similar videos beside
+  it, and a theatre button widens the video to the full width. Phones in
+  portrait are unchanged. (#11)
+- **Smaller desktop download.** The macOS and Windows apps bundle only the
+  libVLC plugins the player uses, so the VLC part of the app is about 22 MB
+  instead of 91 MB. (#30)
+
+### Fixed
+
+- **Desktop downloads on Windows.** A finished download waits a few seconds
+  for a file that a player still has open, rather than failing. Removing a
+  download that's still open in a player leaves its file behind, and the app
+  logs it. (#31)
+- **Offline videos play on desktop.** Saved videos open in the player from
+  any folder, including paths with spaces or non-English characters.
 
 ## v0.1.0
 

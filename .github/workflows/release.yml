@@ -3,6 +3,8 @@ name: Release
 # Runs when a version tag (v1.2.3) is pushed. The tag must be on master, match
 # versionName in app/build.gradle.kts, and have a section in CHANGELOG.md
 # (scripts/prepare-release.py does both on the release/* branch).
+# The release job publishes the Android APK. The desktop jobs run after it and attach their packages and the
+# VLC source to that release.
 on:
   push:
     tags: ['v*']
@@ -110,3 +112,161 @@ jobs:
       - name: Remove the keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
+
+  # Each desktop job builds one package and attaches it to the release the release job created. The builds are
+  # unsigned, so the release notes say how to open them. A failed job can be re-run without rebuilding the rest.
+  desktop-macos:
+    name: Desktop macOS ${{ matrix.arch }}
+    needs: release
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Build the app
+        run: ./gradlew :desktop:packageMacZip --console=plain
+
+      - name: Name, check and upload the app
+        env:
+          TAG: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          src="$(ls desktop/build/compose/binaries/main/zip/*.zip)"
+          out="reliquary-$TAG-macos-$ARCH.zip"
+          cp "$src" "$out"
+          sha256sum "$out" > "$out.sha256"
+          gh release upload "$TAG" "$out" "$out.sha256" --clobber
+
+  desktop-windows:
+    name: Desktop Windows
+    needs: release
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      # jpackage builds the MSI with WiX 3, which the runner doesn't include.
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          choco install wixtoolset --version=3.11.2 --yes --no-progress
+          $candle = Get-ChildItem -Path "${env:ProgramFiles(x86)}\WiX Toolset*" -Recurse -Filter candle.exe | Select-Object -First 1
+          if (-not $candle) { Write-Error "candle.exe not found after installing WiX."; exit 1 }
+          Add-Content -Path $env:GITHUB_PATH -Value $candle.DirectoryName
+
+      - name: Build the installer
+        shell: bash
+        run: ./gradlew :desktop:packageMsi --console=plain
+
+      - name: Name, check and upload the installer
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          src="$(ls desktop/build/compose/binaries/main/msi/*.msi)"
+          out="reliquary-$TAG-windows-x64.msi"
+          cp "$src" "$out"
+          sha256sum "$out" > "$out.sha256"
+          gh release upload "$TAG" "$out" "$out.sha256" --clobber
+
+  desktop-linux:
+    name: Desktop Linux
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      # The Linux app uses the system's VLC, so the .deb depends on its packages rather than bundling libVLC.
+      - name: Build the .deb
+        run: ./gradlew :desktop:packageDeb --console=plain
+
+      - name: Name, check and upload the .deb
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          src="$(ls desktop/build/compose/binaries/main/deb/*.deb)"
+          out="reliquary-$TAG-linux-amd64.deb"
+          cp "$src" "$out"
+          if ! dpkg-deb -f "$out" Depends | grep -q libvlc5; then
+            echo "::error::$out doesn't depend on libvlc5."; exit 1
+          fi
+          sha256sum "$out" > "$out.sha256"
+          gh release upload "$TAG" "$out" "$out.sha256" --clobber
+
+  # libVLC's source, as the LGPL asks for with the binaries bundled in the macOS and Windows apps.
+  vlc-source:
+    name: VLC source
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Fetch the VLC source
+        run: ./gradlew :desktop:fetchVlcSource --console=plain
+
+      - name: Upload the VLC source
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd desktop/build/vlc-source
+          src="$(ls ./*.tar.xz)"
+          sha256sum "$src" > "$src.sha256"
+          gh release upload "$TAG" "$src" "$src.sha256" --clobber

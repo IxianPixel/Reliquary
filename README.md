@@ -58,8 +58,10 @@ screens with the Android app. Run it from a checkout:
 
 `./gradlew :desktop:packageMacZip` builds a zipped `.app` for the Mac you're on
 (it needs a JDK 21 with `jpackage`; Gradle downloads one if it's missing).
-Builds are unsigned for now, so macOS asks you to right-click and choose Open
-the first time.
+Release builds are unsigned, so macOS asks you to right-click the app and choose
+Open the first time (or run `xattr -dr com.apple.quarantine Reliquary.app` after
+unzipping), and Windows shows a SmartScreen warning: choose More info, then Run
+anyway.
 
 Videos play through [libVLC](https://www.videolan.org/vlc/libvlc.html), which
 the build downloads (a pinned version, checksum-checked) and bundles with the

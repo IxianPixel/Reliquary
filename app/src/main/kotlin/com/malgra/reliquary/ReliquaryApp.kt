@@ -39,8 +39,10 @@ import androidx.navigation3.ui.NavDisplay
 import com.malgra.reliquary.core.data.session.SessionState
 import com.malgra.reliquary.core.shell.ChannelDetail
 import com.malgra.reliquary.core.shell.Channels
+import com.malgra.reliquary.core.shell.DetailPane
 import com.malgra.reliquary.core.shell.Downloads
 import com.malgra.reliquary.core.shell.Home
+import com.malgra.reliquary.core.shell.ListPane
 import com.malgra.reliquary.core.shell.MainViewModel
 import com.malgra.reliquary.core.shell.PlaylistDetail
 import com.malgra.reliquary.core.shell.Playlists
@@ -49,8 +51,12 @@ import com.malgra.reliquary.core.shell.Search
 import com.malgra.reliquary.core.shell.Settings
 import com.malgra.reliquary.core.shell.TopLevelDestination
 import com.malgra.reliquary.core.shell.VideoActionsViewModel
+import com.malgra.reliquary.core.shell.back
+import com.malgra.reliquary.core.shell.openFromList
+import com.malgra.reliquary.core.shell.rememberSceneStrategy
 import com.malgra.reliquary.core.ui.LocalVideoActions
 import com.malgra.reliquary.core.ui.rememberLocalNetworkAccess
+import com.malgra.reliquary.core.ui.rememberTwoPanes
 import com.malgra.reliquary.core.ui.viewmodel.injectedViewModel
 import com.malgra.reliquary.feature.channels.ChannelScreen
 import com.malgra.reliquary.feature.channels.ChannelsScreen
@@ -91,6 +97,8 @@ private fun MainShell(viewModel: MainViewModel) {
     val backStack = rememberNavBackStack(Home)
     // The tab whose stack is showing: the nearest top-level key from the top of the stack.
     val selectedTab = backStack.lastOrNull { key -> TopLevelDestination.entries.any { it.key == key } }
+    val sceneStrategy = rememberSceneStrategy()
+    val twoPanes = rememberTwoPanes()
     // One connection to the playback service, and the player sheet over everything.
     val player = rememberVideoPlayer()
     val playerSheet = rememberPlayerSheetState()
@@ -140,13 +148,14 @@ private fun MainShell(viewModel: MainViewModel) {
                 ) {
                     NavDisplay(
                         backStack = backStack,
-                        onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                        onBack = { backStack.back(twoPanes) },
+                        sceneStrategies = listOf(sceneStrategy),
                         entryDecorators = listOf(
                             rememberSaveableStateHolderNavEntryDecorator(),
                             rememberViewModelStoreNavEntryDecorator(),
                         ),
                         entryProvider = entryProvider {
-                            val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+                            val back: () -> Unit = { backStack.back(twoPanes) }
                             val openVideo: (String) -> Unit = { playerSheet.open(it) }
                             val openChannel: (String) -> Unit = { backStack.add(ChannelDetail(it)) }
                             val openPlaylist: (String) -> Unit = { backStack.add(PlaylistDetail(it)) }
@@ -158,8 +167,10 @@ private fun MainShell(viewModel: MainViewModel) {
                                     onOpenVideo = openVideo,
                                 )
                             }
-                            entry<Channels> { ChannelsScreen(onOpenChannel = openChannel) }
-                            entry<ChannelDetail> { key ->
+                            entry<Channels>(metadata = ListPane) {
+                                ChannelsScreen(onOpenChannel = { backStack.openFromList(ChannelDetail(it)) })
+                            }
+                            entry<ChannelDetail>(metadata = DetailPane) { key ->
                                 ChannelScreen(
                                     channelId = key.channelId,
                                     onBack = back,
@@ -167,8 +178,10 @@ private fun MainShell(viewModel: MainViewModel) {
                                     onOpenPlaylist = openPlaylist,
                                 )
                             }
-                            entry<Playlists> { PlaylistsScreen(onOpenPlaylist = openPlaylist) }
-                            entry<PlaylistDetail> { key ->
+                            entry<Playlists>(metadata = ListPane) {
+                                PlaylistsScreen(onOpenPlaylist = { backStack.openFromList(PlaylistDetail(it)) })
+                            }
+                            entry<PlaylistDetail>(metadata = DetailPane) { key ->
                                 // Videos opened here play with the rest of the playlist queued after them.
                                 PlaylistScreen(
                                     playlistId = key.playlistId,

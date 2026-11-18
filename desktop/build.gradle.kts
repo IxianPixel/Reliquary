@@ -142,10 +142,20 @@ val setMacBundleVersion = tasks.register<Exec>("setMacBundleVersion") {
     )
 }
 
+// Writing the version edits Info.plist after jpackage signed the bundle, which breaks the seal: Gatekeeper then
+// reports an invalid signature, where a consistent ad hoc one gets the usual "unidentified developer" prompt.
+// No hardened runtime, so libVLC's plugins load without the library-validation exception they'd need.
+val signMacApp = tasks.register<Exec>("signMacApp") {
+    description = "Re-seals the macOS app bundle ad hoc after its version is written."
+    dependsOn(setMacBundleVersion)
+    val app = layout.buildDirectory.dir("compose/binaries/main/app/Reliquary.app")
+    commandLine("codesign", "--force", "--sign", "-", app.get().asFile.absolutePath)
+}
+
 val packageMacZip = tasks.register<Exec>("packageMacZip") {
     group = "compose desktop"
     description = "Zips the macOS app bundle."
-    dependsOn(setMacBundleVersion)
+    dependsOn(signMacApp)
     val app = layout.buildDirectory.file("compose/binaries/main/app/Reliquary.app")
     val zip = layout.buildDirectory.file("compose/binaries/main/zip/Reliquary-$appVersion-macos.zip")
     outputs.file(zip)
@@ -218,6 +228,14 @@ abstract class FetchVerified : DefaultTask() {
     }
 }
 
+// The source offer the LGPL and GPL ask for, attached to every desktop release whatever OS it was built on.
+tasks.register<FetchVerified>("fetchVlcSource") {
+    description = "Downloads the VLC source tarball that vlc.properties pins, to attach to the release."
+    url.set(vlc.getProperty("source.url"))
+    sha256.set(vlc.getProperty("source.sha256"))
+    target.set(layout.buildDirectory.file("vlc-source/${vlc.getProperty("source.url").substringAfterLast('/')}"))
+}
+
 /** Copies libvlc, libvlccore (as plain files, not VLC.app's symlinks) and plugins/ out of VLC's macOS disk image. */
 abstract class ExtractVlcFromDmg : DefaultTask() {
     @get:InputFile abstract val dmg: RegularFileProperty
@@ -247,6 +265,12 @@ abstract class ExtractVlcFromDmg : DefaultTask() {
 }
 
 if (vlcTarget != null) {
+    // Only the plugins the player needs are bundled: vlc-plugins.txt lists them, one per line, optionally prefixed by the platform.
+    val platform = vlcTarget.substringBefore('-')
+    val vlcPluginNames: List<String> = file("vlc-plugins.txt").readLines().map(String::trim)
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .filter { !it.contains(':') || it.substringBefore(':') == platform }
+        .map { it.substringAfter(':') }
     val fetchVlc = tasks.register<FetchVerified>("fetchVlc") {
         description = "Downloads the pinned libVLC for this OS and checks its SHA-256."
         url.set(vlc.getProperty("$vlcTarget.url"))
@@ -266,7 +290,10 @@ if (vlcTarget != null) {
     }
     val prepareVlc = tasks.register<Sync>("prepareVlc") {
         description = "Puts libVLC, its plugins and its licences where the app's resources are built from."
+        val pluginSuffix = if (vlcTarget == "windows-x64") "_plugin.dll" else "_plugin.dylib"
+        val libraries = if (vlcTarget == "windows-x64") listOf("libvlc.dll", "libvlccore.dll") else listOf("libvlc.dylib", "libvlccore.dylib")
         from(vlcFiles) {
+            include(libraries.map { "**/$it" } + vlcPluginNames.map { "**/lib$it$pluginSuffix" })
             if (vlcTarget == "windows-x64") eachFile { relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray()) }
         }
         from("vlc-licences")
@@ -280,6 +307,14 @@ if (vlcTarget != null) {
         ).asFile()) { rename { "README.txt" } }
         includeEmptyDirs = false
         into(vlcResources.map { it.dir("$vlcTarget/vlc") })
+        // A misspelt name would otherwise leave its decoder out without a word.
+        val expected = vlcPluginNames.map { "lib$it$pluginSuffix" }
+        val version = vlcVersion
+        doLast {
+            val copied = destinationDir.walk().map { it.name }.toSet()
+            val missing = expected.filter { it !in copied }
+            if (missing.isNotEmpty()) throw GradleException("vlc-plugins.txt names plugins libVLC $version doesn't have: $missing")
+        }
     }
     tasks.matching { it.name == "prepareAppResources" }.configureEach { dependsOn(prepareVlc) }
 }

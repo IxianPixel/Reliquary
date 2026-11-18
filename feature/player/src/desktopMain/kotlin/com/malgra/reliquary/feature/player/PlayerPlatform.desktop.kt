@@ -139,6 +139,7 @@ internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
     }
     return object : FullScreen {
         override val isFullScreen = isFullScreen
+        override val canToggle = true
 
         override fun toggle() {
             if (isFullScreen) exit() else enter()

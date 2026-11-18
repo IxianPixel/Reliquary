@@ -34,6 +34,7 @@ import com.malgra.reliquary.core.designsystem.resources.ic_skip
 import com.malgra.reliquary.core.designsystem.resources.ic_sort
 import com.malgra.reliquary.core.designsystem.resources.ic_subtitles
 import com.malgra.reliquary.core.designsystem.resources.ic_sync
+import com.malgra.reliquary.core.designsystem.resources.ic_theatre
 import org.jetbrains.compose.resources.DrawableResource
 
 /** Stroke icons drawn to match the mockups. */
@@ -63,6 +64,7 @@ object ReliquaryIcons {
     val Forward10: DrawableResource = Res.drawable.ic_forward_10
     val Fullscreen: DrawableResource = Res.drawable.ic_fullscreen
     val FullscreenExit: DrawableResource = Res.drawable.ic_fullscreen_exit
+    val Theatre: DrawableResource = Res.drawable.ic_theatre
     val ChevronDown: DrawableResource = Res.drawable.ic_chevron_down
     val ChevronRight: DrawableResource = Res.drawable.ic_chevron_right
     val Sync: DrawableResource = Res.drawable.ic_sync

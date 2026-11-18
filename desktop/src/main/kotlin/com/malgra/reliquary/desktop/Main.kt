@@ -72,7 +72,8 @@ fun main() {
             },
         ) {
             DisposableEffect(window) {
-                window.minimumSize = Dimension(720, 480)
+                // Narrower than 600dp the window takes the phone's one-pane layout; the minimum has to allow that.
+                window.minimumSize = Dimension(360, 480)
                 instance.onShowRequest = { SwingUtilities.invokeLater { bringToFront(window, state) } }
                 onDispose { instance.onShowRequest = {} }
             }

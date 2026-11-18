@@ -13,6 +13,8 @@ kotlin {
             implementation(project(":core:data"))
             api(libs.androidx.paging.compose)
             api(libs.cmp.lifecycle.viewmodel.compose) // injectedViewModel is inline
+            api(libs.cmp.material3.adaptive) // window size classes: PaneScaffoldDirective (#11)
+            api(libs.cmp.material3.adaptive.layout) // calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth (#11)
             implementation(libs.cmp.lifecycle.runtime.compose)
             implementation(libs.coil.compose)
         }

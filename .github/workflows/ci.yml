@@ -58,3 +58,38 @@ jobs:
             **/build/reports/
             **/build/test-results/
           retention-days: 14
+
+  desktop:
+    # The desktop app's tests on Windows and macOS; the build job already runs them on Linux.
+    name: Desktop tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Git Bash on Windows, so the same ./gradlew line runs on both systems.
+      - name: Desktop unit tests
+        shell: bash
+        run: ./gradlew desktopTest :desktop:test --console=plain
+
+      - name: Upload reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-reports-${{ matrix.os }}
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          retention-days: 14

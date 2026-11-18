@@ -7,6 +7,7 @@ import com.malgra.reliquary.core.model.Subtitle
 import com.malgra.reliquary.core.network.log.Log
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -151,16 +152,29 @@ class MediaDownloader @Inject constructor(
         }
 
         val size = part.length()
-        val complete = files.complete(videoId)
-        complete.delete()
-        if (!part.renameTo(complete)) throw IOException("Couldn't move the finished download into place")
+        moveIntoPlace(part, files.complete(videoId))
         downloads.update(videoId, DownloadStatus.Completed.name, size, size)
         return Outcome.Done
+    }
+
+    /**
+     * Renames [part] over [complete], which may be an older copy. Windows won't
+     * replace a file that a player still has open, so this retries for a few
+     * seconds, long enough for the player to let go, before failing.
+     */
+    private suspend fun moveIntoPlace(part: File, complete: File) {
+        repeat(MOVE_ATTEMPTS) { attempt ->
+            if ((!complete.exists() || complete.delete()) && part.renameTo(complete)) return
+            if (attempt < MOVE_ATTEMPTS - 1) delay(MOVE_RETRY_MS)
+        }
+        throw IOException("Couldn't move the finished download into place (is ${complete.name} open in a player?)")
     }
 
     private companion object {
         const val TAG = "MediaDownloader"
         const val BUFFER_BYTES = 64 * 1024
         const val REPORT_INTERVAL_MS = 750L
+        const val MOVE_ATTEMPTS = 10
+        const val MOVE_RETRY_MS = 300L
     }
 }

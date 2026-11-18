@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -65,6 +66,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,6 +99,7 @@ import com.malgra.reliquary.feature.player.resources.player_downloading
 import com.malgra.reliquary.feature.player.resources.player_downloading_unknown
 import com.malgra.reliquary.feature.player.resources.player_error
 import com.malgra.reliquary.feature.player.resources.player_exit_full_screen
+import com.malgra.reliquary.feature.player.resources.player_exit_theatre
 import com.malgra.reliquary.feature.player.resources.player_forward_10
 import com.malgra.reliquary.feature.player.resources.player_full_screen
 import com.malgra.reliquary.feature.player.resources.player_keep
@@ -117,6 +120,7 @@ import com.malgra.reliquary.feature.player.resources.player_similar
 import com.malgra.reliquary.feature.player.resources.player_subtitle_auto
 import com.malgra.reliquary.feature.player.resources.player_subtitles
 import com.malgra.reliquary.feature.player.resources.player_subtitles_off
+import com.malgra.reliquary.feature.player.resources.player_theatre
 import com.malgra.reliquary.feature.player.resources.player_synced_note
 import com.malgra.reliquary.feature.player.resources.player_time
 import com.malgra.reliquary.feature.player.resources.player_unavailable
@@ -181,6 +185,9 @@ internal fun VideoArea(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
     smoothResize: Boolean = false,
+    fullScreenAvailable: Boolean = true,
+    theatre: Boolean = false,
+    onToggleTheatre: (() -> Unit)? = null,
     onSubtitleChosen: (Subtitle?) -> Unit = {},
 ) {
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
@@ -286,6 +293,9 @@ internal fun VideoArea(
                     scrub = null
                 },
                 onToggleFullScreen = onToggleFullScreen,
+                fullScreenAvailable = fullScreenAvailable,
+                theatre = theatre,
+                onToggleTheatre = onToggleTheatre,
                 onMinimise = onMinimise,
                 subtitles = video?.subtitles.orEmpty(),
                 segments = video?.sponsorSegments.orEmpty().toFractions(duration),
@@ -362,6 +372,9 @@ private fun Controls(
     onScrub: (Float) -> Unit,
     onScrubEnd: () -> Unit,
     onToggleFullScreen: () -> Unit,
+    fullScreenAvailable: Boolean,
+    theatre: Boolean,
+    onToggleTheatre: (() -> Unit)?,
     onMinimise: () -> Unit,
     subtitles: List<Subtitle>,
     onSubtitleChosen: (Subtitle?) -> Unit,
@@ -432,14 +445,25 @@ private fun Controls(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onToggleFullScreen, modifier = Modifier.size(sizes.skip)) {
-                    Icon(
-                        painterResource(if (fullScreen) ReliquaryIcons.FullscreenExit else ReliquaryIcons.Fullscreen),
-                        contentDescription = stringResource(
-                            if (fullScreen) Res.string.player_exit_full_screen else Res.string.player_full_screen,
-                        ),
-                        tint = Color.White,
-                    )
+                if (onToggleTheatre != null) {
+                    IconButton(onClick = onToggleTheatre, modifier = Modifier.size(sizes.skip)) {
+                        Icon(
+                            painterResource(ReliquaryIcons.Theatre),
+                            contentDescription = stringResource(if (theatre) Res.string.player_exit_theatre else Res.string.player_theatre),
+                            tint = Color.White,
+                        )
+                    }
+                }
+                if (fullScreenAvailable) {
+                    IconButton(onClick = onToggleFullScreen, modifier = Modifier.size(sizes.skip)) {
+                        Icon(
+                            painterResource(if (fullScreen) ReliquaryIcons.FullscreenExit else ReliquaryIcons.Fullscreen),
+                            contentDescription = stringResource(
+                                if (fullScreen) Res.string.player_exit_full_screen else Res.string.player_full_screen,
+                            ),
+                            tint = Color.White,
+                        )
+                    }
                 }
             }
             SeekBar(
@@ -588,103 +612,145 @@ internal fun Details(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(key = "title") {
-            Column {
-                Text(
-                    video.title,
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Text(
-                    metaLine(
-                        video.published?.let { stringResource(Res.string.player_published, formatDate(it)) },
-                        video.mediaSizeBytes.takeIf { it > 0 }?.let { fileSizeText(it) },
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
+        videoInfo(
+            video = video,
+            channel = channel,
+            download = download,
+            onDownload = onDownload,
+            onRemoveDownload = onRemoveDownload,
+            onSetWatched = onSetWatched,
+            onOpenChannel = onOpenChannel,
+            comments = loadedComments,
+            onShowComments = { showingComments = true },
+        )
+        relatedVideos(video, queue, onPlayQueued, similar, onOpenVideo)
+    }
+}
+
+/**
+ * The title, actions, channel, description and comments under the video. Used
+ * under the video on a phone, and under it in the left column on a wide window.
+ * [comments] is null unless the server saved some, so there's nothing to open.
+ */
+internal fun LazyListScope.videoInfo(
+    video: Video,
+    channel: Channel?,
+    download: Download?,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
+    onSetWatched: (Boolean) -> Unit,
+    onOpenChannel: (String) -> Unit,
+    comments: CommentsState.Loaded?,
+    onShowComments: () -> Unit,
+) {
+    item(key = "title") {
+        Column {
+            Text(
+                video.title,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                metaLine(
+                    video.published?.let { stringResource(Res.string.player_published, formatDate(it)) },
+                    video.mediaSizeBytes.takeIf { it > 0 }?.let { fileSizeText(it) },
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
-        item(key = "actions") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DownloadButton(download, onDownload, onRemoveDownload)
-                ToggleButton(checked = video.watched, onCheckedChange = onSetWatched) {
-                    Icon(
-                        painterResource(ReliquaryIcons.CheckCircle),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        stringResource(if (video.watched) Res.string.player_watched else Res.string.player_mark_watched),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
-        }
-        if (video.channelId.isNotEmpty()) {
-            item(key = "channel") {
-                ChannelRow(video, channel, onClick = { onOpenChannel(video.channelId) })
-            }
-        }
-        if (!video.description.isNullOrBlank()) {
-            item(key = "description") { Description(video.description!!) }
-        }
-        item(key = "sync") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    }
+    item(key = "actions") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DownloadButton(download, onDownload, onRemoveDownload)
+            ToggleButton(checked = video.watched, onCheckedChange = onSetWatched) {
                 Icon(
-                    painterResource(ReliquaryIcons.Sync),
+                    painterResource(ReliquaryIcons.CheckCircle),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(18.dp),
                 )
                 Text(
-                    stringResource(if (video.syncPending) Res.string.player_pending_note else Res.string.player_synced_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(if (video.watched) Res.string.player_watched else Res.string.player_mark_watched),
+                    modifier = Modifier.padding(start = 8.dp),
                 )
             }
         }
-        // Only when the server saved some; offline or none, there's nothing to show.
-        if (loadedComments != null) {
-            item(key = "comments") { CommentsRow(loadedComments, onOpen = { showingComments = true }) }
+    }
+    if (video.channelId.isNotEmpty()) {
+        item(key = "channel") {
+            ChannelRow(video, channel, onClick = { onOpenChannel(video.channelId) })
         }
-        // "Next in" the playlist, as in the mockup: the next few, tap to jump.
-        val current = queue?.videos?.indexOfFirst { it.id == video.id } ?: -1
-        val upNext = if (queue != null && current >= 0) {
-            queue.videos.withIndex().drop(current + 1).take(UP_NEXT_COUNT)
-        } else {
-            emptyList()
+    }
+    if (!video.description.isNullOrBlank()) {
+        item(key = "description") { Description(video.description!!) }
+    }
+    item(key = "sync") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                painterResource(ReliquaryIcons.Sync),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                stringResource(if (video.syncPending) Res.string.player_pending_note else Res.string.player_synced_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        if (upNext.isNotEmpty()) {
-            item(key = "next-header") {
-                Text(
-                    stringResource(Res.string.player_next_in, queue!!.name),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { heading() },
-                )
-            }
-            items(upNext, key = { "next-${it.value.id}" }) { (index, next) ->
-                VideoListItem(
-                    next,
-                    onClick = { onPlayQueued(index) },
-                    // Edge to edge like other lists, past the column's padding.
-                    modifier = Modifier.bleedHorizontally(16.dp),
-                )
-            }
+    }
+    if (comments != null) {
+        item(key = "comments") { CommentsRow(comments, onOpen = onShowComments) }
+    }
+}
+
+/**
+ * "Next in" the playlist, then similar videos. Beside the video on a wide
+ * window, and under the comments in theatre mode.
+ */
+internal fun LazyListScope.relatedVideos(
+    video: Video,
+    queue: PlayQueue?,
+    onPlayQueued: (index: Int) -> Unit,
+    similar: List<Video>,
+    onOpenVideo: (String) -> Unit,
+) {
+    // "Next in" the playlist, as in the mockup: the next few, tap to jump.
+    val current = queue?.videos?.indexOfFirst { it.id == video.id } ?: -1
+    val upNext = if (queue != null && current >= 0) {
+        queue.videos.withIndex().drop(current + 1).take(UP_NEXT_COUNT)
+    } else {
+        emptyList()
+    }
+    if (upNext.isNotEmpty()) {
+        item(key = "next-header") {
+            Text(
+                stringResource(Res.string.player_next_in, queue!!.name),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
         }
-        if (similar.isNotEmpty()) {
-            item(key = "similar-header") {
-                Text(
-                    stringResource(Res.string.player_similar),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { heading() },
-                )
-            }
-            items(similar, key = { "similar-${it.id}" }) { other ->
-                VideoListItem(other, onClick = { onOpenVideo(other.id) }, modifier = Modifier.bleedHorizontally(16.dp))
-            }
+        items(upNext, key = { "next-${it.value.id}" }) { (index, next) ->
+            VideoListItem(
+                next,
+                onClick = { onPlayQueued(index) },
+                // Edge to edge like other lists, past the column's padding.
+                modifier = Modifier.bleedHorizontally(16.dp),
+            )
+        }
+    }
+    if (similar.isNotEmpty()) {
+        item(key = "similar-header") {
+            Text(
+                stringResource(Res.string.player_similar),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+        }
+        items(similar, key = { "similar-${it.id}" }) { other ->
+            VideoListItem(other, onClick = { onOpenVideo(other.id) }, modifier = Modifier.bleedHorizontally(16.dp))
         }
     }
 }
@@ -701,6 +767,18 @@ private fun Modifier.bleedHorizontally(amount: Dp) = layout { measurable, constr
         ),
     )
     layout(placeable.width - extra, placeable.height) { placeable.place(-amount.roundToPx(), 0) }
+}
+
+/**
+ * A 16:9 video that runs past its parent's horizontal padding, so it's edge to
+ * edge in a list. Sized from the wider width, so its shape stays 16:9.
+ */
+internal fun Modifier.edgeToEdgeVideo(amount: Dp) = layout { measurable, constraints ->
+    val extra = (amount * 2).roundToPx()
+    val width = constraints.maxWidth + extra
+    val height = width * 9 / 16
+    val placeable = measurable.measure(Constraints.fixed(width, height))
+    layout(constraints.maxWidth, height) { placeable.place(-amount.roundToPx(), 0) }
 }
 
 /** Download, progress (tap to cancel), or Downloaded (tap to remove, after asking). */

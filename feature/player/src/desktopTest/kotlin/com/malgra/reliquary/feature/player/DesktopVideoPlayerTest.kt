@@ -85,7 +85,7 @@ class DesktopVideoPlayerTest {
         start(player, "a", startMs = 45_000)
 
         // The play() right after the queue reaches the open, which isn't then paused.
-        assertEquals(listOf("open file:/media/a.mp4 45000 paused=false"), engine.calls)
+        assertEquals(listOf("open file:///media/a.mp4 45000 paused=false"), engine.calls)
         assertEquals(PlaybackState.Buffering, player.status.state)
         assertEquals(45_000, player.positionMs)
 
@@ -133,7 +133,7 @@ class DesktopVideoPlayerTest {
         engine.listener!!.onEnded()
         runCurrent()
         assertEquals("b" to ItemTransitionReason.Auto, events.transitions.last())
-        assertEquals("open file:/media/b.mp4 0 paused=false", engine.calls.last())
+        assertEquals("open file:///media/b.mp4 0 paused=false", engine.calls.last())
         player.release()
     }
 

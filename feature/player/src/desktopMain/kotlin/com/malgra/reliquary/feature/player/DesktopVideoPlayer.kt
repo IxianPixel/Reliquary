@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.abs
 
@@ -258,7 +259,7 @@ internal class DesktopVideoPlayer(
         }
         opening = startMs
         val uri = when (val source = item.source) {
-            is MediaSource.Local -> source.file.toURI().toString()
+            is MediaSource.Local -> localMediaUri(source.file)
             is MediaSource.Remote -> proxy.register(source.url).also { proxyToken = it.token }.url
         }
         pendingOpen = scope.launch {
@@ -459,3 +460,10 @@ internal class DesktopVideoPlayer(
         const val SEEK_TOLERANCE_MS = 1_500L
     }
 }
+
+/**
+ * The URI libVLC opens a local file by. File.toURI() gives file:/path, which libVLC reads as a path
+ * relative to its working directory, so the file never opens. Path.toUri() gives file:///path with
+ * spaces and non-ASCII characters percent-encoded, and file:///C:/... for a Windows drive.
+ */
+internal fun localMediaUri(file: File): String = file.absoluteFile.toPath().toUri().toString()

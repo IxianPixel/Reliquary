@@ -25,6 +25,7 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
+import com.malgra.reliquary.core.ui.rememberTwoPanes
 
 private val VideoPlayer.media3: Player get() = (this as Media3VideoPlayer).player
 
@@ -95,17 +96,24 @@ internal actual fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit) = Ba
 /**
  * Full screen is landscape. The full-screen button locks to landscape on
  * purpose; collapsing the player hands the orientation back to the phone.
+ *
+ * A tablet doesn't go full screen: it keeps the details beside the video, in
+ * either orientation, so there's no full-screen button there.
  */
 @SuppressLint("SourceLockedOrientationActivity")
 @Composable
 internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_WIDTH_DP
+    val twoPanes = rememberTwoPanes()
+    val tabletPanes = tablet && twoPanes
     val activity = LocalActivity.current
     LaunchedEffect(expanded) {
         if (!expanded) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
     return object : FullScreen {
-        override val isFullScreen = landscape
+        override val isFullScreen = landscape && !tabletPanes
+        override val canToggle = !tabletPanes
 
         override fun toggle() {
             activity?.requestedOrientation = if (landscape) {
@@ -120,6 +128,9 @@ internal actual fun rememberFullScreen(expanded: Boolean): FullScreen {
         }
     }
 }
+
+/** The narrowest a tablet's screen gets (sw600dp); a phone is narrower in both orientations. */
+private const val TABLET_MIN_WIDTH_DP = 600
 
 // A tap toggles the controls on a phone; there's no pointer to follow.
 internal actual fun Modifier.pointerActivity(hideCursor: Boolean, onMove: () -> Unit): Modifier = this
