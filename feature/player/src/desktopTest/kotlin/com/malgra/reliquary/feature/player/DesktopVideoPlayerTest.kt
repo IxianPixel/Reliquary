@@ -70,6 +70,9 @@ class DesktopVideoPlayerTest {
 
     private fun item(id: String) = playerItem(id).copy(source = MediaSource.Local(File("/media/$id.mp4")))
 
+    // On Windows /media/a.mp4 resolves against the current drive, so the URI isn't fixed text.
+    private fun uri(id: String) = localMediaUri(File("/media/$id.mp4"))
+
     private fun TestScope.player(factory: EngineFactory = EngineFactory { Result.success(engine) }) =
         DesktopVideoPlayer(OkHttpClient(), this, factory, clock = { testScheduler.currentTime }).also { it.addListener(events) }
 
@@ -85,7 +88,7 @@ class DesktopVideoPlayerTest {
         start(player, "a", startMs = 45_000)
 
         // The play() right after the queue reaches the open, which isn't then paused.
-        assertEquals(listOf("open file:///media/a.mp4 45000 paused=false"), engine.calls)
+        assertEquals(listOf("open ${uri("a")} 45000 paused=false"), engine.calls)
         assertEquals(PlaybackState.Buffering, player.status.state)
         assertEquals(45_000, player.positionMs)
 
@@ -133,7 +136,7 @@ class DesktopVideoPlayerTest {
         engine.listener!!.onEnded()
         runCurrent()
         assertEquals("b" to ItemTransitionReason.Auto, events.transitions.last())
-        assertEquals("open file:///media/b.mp4 0 paused=false", engine.calls.last())
+        assertEquals("open ${uri("b")} 0 paused=false", engine.calls.last())
         player.release()
     }
 

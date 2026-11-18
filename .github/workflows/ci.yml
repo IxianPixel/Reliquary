@@ -82,7 +82,8 @@ jobs:
       # Git Bash on Windows, so the same ./gradlew line runs on both systems.
       - name: Desktop unit tests
         shell: bash
-        run: ./gradlew desktopTest :desktop:test --console=plain
+        # --continue so one platform failure doesn't hide the others.
+        run: ./gradlew desktopTest :desktop:test --continue --console=plain
 
       - name: Upload reports
         if: ${{ !cancelled() }}
