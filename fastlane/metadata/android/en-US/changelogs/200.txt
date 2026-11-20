@@ -1,0 +1,18 @@
+Added:
+• Add channels
+• Channel settings
+• Add playlists
+• Queue
+• Desktop app (in progress)
+• Desktop releases
+• Timestamps and chapters
+• Theme, dynamic colour and a storage limit
+Updated:
+• Wide screens
+• Smaller desktop download
+• Shorts play in portrait
+Fixed:
+• Desktop downloads on Windows
+• Offline videos play on desktop
+• Seeking back on desktop
+Full notes: https://github.com/IxianPixel/Reliquary/releases/tag/v0.2.0

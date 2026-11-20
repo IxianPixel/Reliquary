@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "com.malgra.reliquary"
         // Bumped on the release/* branch (scripts/prepare-release.py). versionCode = major * 10000 + minor * 100 + patch.
-        versionCode = 100
-        versionName = "0.1.0"
+        versionCode = 200
+        versionName = "0.2.0"
     }
 
     // Release signing, only when a keystore is given: in CI from secrets, locally from
