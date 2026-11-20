@@ -5,8 +5,10 @@
 # --no-spu). Check playback of H.264, VP9 and AV1 MP4s after changing it.
 
 # Access: local files (file://, the filesystem plugin) and the loopback proxy's http:// streams.
+# https is VLC 3's HTTP/1.1 access and handles http:// too; it sends Range and seeks. Not http:
+# that's the legacy HTTP/1.0 one, which never sends Range, so every seek re-reads from byte 0 (#33).
 filesystem
-http
+https
 
 # Demux: TA serves and we download MP4 only.
 mp4

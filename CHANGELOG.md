@@ -55,6 +55,10 @@
   logs it. (#31)
 - **Offline videos play on desktop.** Saved videos open in the player from
   any folder, including paths with spaces or non-English characters.
+- **Seeking back on desktop.** Jumping back in a streamed video, from the seek
+  bar or a timestamp, no longer freezes the picture. The player now asks the
+  server for just the part it needs instead of reading the file again from the
+  start. (#33)
 
 ## v0.1.0
 
