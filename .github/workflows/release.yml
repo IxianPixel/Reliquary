@@ -238,6 +238,25 @@ jobs:
           sha256sum "$out" > "$out.sha256"
           gh release upload "$TAG" "$out" "$out.sha256" --clobber
 
+      # The same app image for other distributions, which install VLC themselves (see desktop/linux/README.txt).
+      - name: Build the portable .tar.gz
+        run: ./gradlew :desktop:packageLinuxTarGz --console=plain
+
+      - name: Name, check and upload the .tar.gz
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          src="$(ls desktop/build/compose/binaries/main/tar/*.tar.gz)"
+          out="reliquary-$TAG-linux-x64.tar.gz"
+          cp "$src" "$out"
+          if ! tar -tzvf "$out" Reliquary/bin/Reliquary | grep -q '^-rwx'; then
+            echo "::error::$out has no executable Reliquary/bin/Reliquary."; exit 1
+          fi
+          sha256sum "$out" > "$out.sha256"
+          gh release upload "$TAG" "$out" "$out.sha256" --clobber
+
   # libVLC's source, as the LGPL asks for with the binaries bundled in the macOS and Windows apps.
   vlc-source:
     name: VLC source

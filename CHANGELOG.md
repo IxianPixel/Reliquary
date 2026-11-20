@@ -22,8 +22,9 @@
   sign in, browse your library and play videos, with the same resume,
   progress sync and SponsorBlock skips as the phone. (#2)
 - **Desktop releases.** Each release now attaches the desktop app: a zipped
-  macOS app for Apple silicon and one for Intel, a Windows installer and a
-  Linux .deb, plus the libVLC source the bundled player needs. The builds are
+  macOS app for Apple silicon and one for Intel, a Windows installer, a Linux
+  .deb and a portable Linux .tar.gz for other distributions, plus the libVLC
+  source the bundled player needs. The builds are
   unsigned, so macOS asks you to right-click the app and choose Open, or run
   `xattr -dr com.apple.quarantine Reliquary.app`, and Windows shows a
   SmartScreen warning: choose More info, then Run anyway. (#29)

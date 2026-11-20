@@ -193,6 +193,26 @@ val addDebDependencies = tasks.register<Exec>("addDebDependencies") {
 }
 tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(addDebDependencies) }
 
+// For distributions without .deb: the app image as it is, plus a README naming the VLC packages it needs.
+// GNU tar, as ditto for the Mac zip: the image goes in exactly as jpackage wrote it, owned by root rather than the builder.
+val packageLinuxTarGz = tasks.register<Exec>("packageLinuxTarGz") {
+    group = "compose desktop"
+    description = "Archives the Linux app image as a portable .tar.gz."
+    dependsOn("createDistributable")
+    onlyIf { System.getProperty("os.name").startsWith("Linux") }
+    val app = layout.buildDirectory.dir("compose/binaries/main/app")
+    val readme = file("linux/README.txt")
+    val archive = layout.buildDirectory.file("compose/binaries/main/tar/Reliquary-$appVersion-linux-x64.tar.gz")
+    inputs.file(readme)
+    outputs.file(archive)
+    doFirst { archive.get().asFile.parentFile.mkdirs() }
+    commandLine(
+        "tar", "-czf", archive.get().asFile.absolutePath, "--owner=0", "--group=0",
+        "-C", app.get().asFile.absolutePath, "Reliquary",
+        "-C", readme.parentFile.absolutePath, "--transform", "s,^README.txt,Reliquary/README.txt,", "README.txt",
+    )
+}
+
 /** Downloads [url] into [target] once, and fails unless its SHA-256 is [sha256]. */
 abstract class FetchVerified : DefaultTask() {
     @get:Input abstract val url: Property<String>

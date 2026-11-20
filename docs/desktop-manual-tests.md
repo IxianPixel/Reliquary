@@ -17,6 +17,9 @@ Record each result as pass, or fail with what you saw.
 - [ ] **Linux:** install the `.deb` with `sudo apt install ./reliquary_*.deb`,
       which pulls in `libvlc5` and the VLC plugin packages. Check with
       `apt show reliquary` that the Depends line lists them.
+- [ ] **Linux, portable:** on a distribution without `.deb` (Fedora, Arch),
+      install VLC as `README.txt` in the `.tar.gz` says, unpack the archive and
+      run `Reliquary/bin/Reliquary`. Sign-in and playback work.
 - [ ] Start the app from the Start menu or application launcher. The window
       opens, the icon is right, and the app appears in the taskbar or dock.
 

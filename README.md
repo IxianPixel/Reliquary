@@ -65,7 +65,10 @@ anyway.
 
 Videos play through [libVLC](https://www.videolan.org/vlc/libvlc.html), which
 the build downloads (a pinned version, checksum-checked) and bundles with the
-macOS and Windows apps. On Linux, install your distribution's `vlc` package.
+macOS and Windows apps. On Linux, install your distribution's `vlc` package:
+the `.deb` pulls it in, and the portable `.tar.gz` (`./gradlew
+:desktop:packageLinuxTarGz`, for other distributions) lists the packages in its
+`README.txt`.
 
 ## Releasing
 
