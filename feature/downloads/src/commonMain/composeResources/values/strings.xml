@@ -11,10 +11,12 @@
     <string name="downloads_sync_now">Sync now</string>
     <string name="downloads_downloaded">Downloaded</string>
     <string name="downloads_storage">%1$s used by downloads · %2$s free</string>
+    <string name="downloads_storage_limit">%1$s of %2$s used by downloads · %3$s free</string>
     <string name="downloads_on_device">On this device · %1$s</string>
     <string name="downloads_waiting">Waiting for a connection</string>
     <string name="downloads_waiting_wifi">Waiting for Wi-Fi</string>
     <string name="downloads_failed">Download failed. Open the video to try again.</string>
+    <string name="downloads_over_limit">Waiting: over the storage limit. Remove a download or raise the limit in Settings.</string>
     <string name="downloads_percent">%1$d%%</string>
     <string name="downloads_of">%1$s of %2$s</string>
     <string name="downloads_speed">%1$s/s</string>

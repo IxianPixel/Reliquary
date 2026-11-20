@@ -10,6 +10,7 @@ import com.malgra.reliquary.core.model.DownloadStatus
 import com.malgra.reliquary.core.model.DownloadedVideo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -85,11 +86,29 @@ class DownloadRepository @Inject constructor(
         scheduler.cancel(videoId)
         downloads.delete(videoId)
         withContext(Dispatchers.IO) { files.delete(videoId) }
+        resumeOverLimit()
     }
 
-    /** Space used by downloads and space free, re-read whenever the downloads change. */
-    fun storage(): Flow<Storage> = downloads.observeAll().map {
-        withContext(Dispatchers.IO) { Storage(files.usedBytes(), files.freeBytes()) }
+    /** Sets the storage limit (null for none); downloads waiting on the old one try again. */
+    suspend fun setStorageLimit(bytes: Long?) {
+        settings.setStorageLimitBytes(bytes)
+        resumeOverLimit()
+    }
+
+    /** Queues the downloads waiting under the storage limit again; [StorageLimit] lets in the ones that now fit. */
+    private suspend fun resumeOverLimit() {
+        val waiting = downloads.withState(DownloadStatus.OverStorageLimit.name).ifEmpty { return }
+        val wifiOnly = settings.wifiOnlyDownloads()
+        for (row in waiting) {
+            downloads.update(row.videoId, DownloadStatus.Queued.name, row.bytesDownloaded, row.totalBytes)
+            val rule = row.ruleId?.let { db.keepOfflineRuleDao().get(it) }
+            scheduler.start(row.videoId, rule?.wifiOnly ?: wifiOnly)
+        }
+    }
+
+    /** Space used by downloads, space free and the limit, re-read whenever the downloads or the limit change. */
+    fun storage(): Flow<Storage> = combine(downloads.observeAll(), settings.storageLimitBytes) { _, limit ->
+        withContext(Dispatchers.IO) { Storage(files.usedBytes(), files.freeBytes(), limit) }
     }
 
     /** Subtitle files saved with [videoId]'s download, by track key. */
@@ -106,10 +125,14 @@ class DownloadRepository @Inject constructor(
     }
 }
 
-data class Storage(val usedBytes: Long, val freeBytes: Long) {
-    /** Share of the space downloads could have (used + free) that they use. */
+/** [limitBytes] is the storage limit from Settings, or null for none. */
+data class Storage(val usedBytes: Long, val freeBytes: Long, val limitBytes: Long? = null) {
+    /** Share of the space downloads may have that they use: of the limit if there is one, else of used + free. */
     val usedFraction: Float
-        get() = if (usedBytes + freeBytes > 0) usedBytes.toFloat() / (usedBytes + freeBytes) else 0f
+        get() {
+            val room = limitBytes ?: (usedBytes + freeBytes)
+            return if (room > 0) (usedBytes.toFloat() / room).coerceIn(0f, 1f) else 0f
+        }
 }
 
 private fun DownloadEntity.toModel() = Download(

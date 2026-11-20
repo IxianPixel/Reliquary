@@ -158,7 +158,8 @@ data class WatchProgress(
     val pendingSync: Boolean,
 )
 
-enum class DownloadStatus { Queued, Downloading, Paused, Completed, Failed }
+/** [OverStorageLimit]: waiting until downloads fit under the storage limit again; it never starts on its own. */
+enum class DownloadStatus { Queued, Downloading, OverStorageLimit, Completed, Failed }
 
 /** A video saved, or being saved, to this device. */
 data class Download(

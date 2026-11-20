@@ -8,6 +8,7 @@ import com.malgra.reliquary.core.data.auth.AuthRepository
 import com.malgra.reliquary.core.data.download.DownloadFiles
 import com.malgra.reliquary.core.data.download.DownloadRepository
 import com.malgra.reliquary.core.data.download.FolderDownloadStorage
+import com.malgra.reliquary.core.data.download.StorageLimit
 import com.malgra.reliquary.core.data.library.ChannelRepository
 import com.malgra.reliquary.core.data.library.ChannelSettingsRepository
 import com.malgra.reliquary.core.data.library.LibraryApi
@@ -87,8 +88,10 @@ class AppGraph(val directories: AppDirectories, logHttp: Boolean) {
     private val downloadFiles by lazy { DownloadFiles(FolderDownloadStorage(directories.downloads)) }
     private val mediaDownloader by lazy { MediaDownloader(okHttpClient, downloadFiles, database.downloadDao()) }
     private val downloadExtras by lazy { DownloadExtras(mediaDownloader, videos, database.downloadDao()) }
+    private val storageLimit by lazy { StorageLimit(database, downloadFiles, settings) }
     val downloadScheduler by lazy {
-        DesktopDownloadScheduler(applicationScope, DownloadJob(database, mediaDownloader, downloadExtras, downloadFiles), database)
+        val job = DownloadJob(database, mediaDownloader, downloadExtras, downloadFiles, storageLimit)
+        DesktopDownloadScheduler(applicationScope, job, database)
     }
     val downloads by lazy { DownloadRepository(database, downloadFiles, downloadScheduler, settings) }
 

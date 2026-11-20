@@ -68,6 +68,7 @@ import com.malgra.reliquary.feature.downloads.resources.downloads_left
 import com.malgra.reliquary.feature.downloads.resources.downloads_missing_video
 import com.malgra.reliquary.feature.downloads.resources.downloads_of
 import com.malgra.reliquary.feature.downloads.resources.downloads_on_device
+import com.malgra.reliquary.feature.downloads.resources.downloads_over_limit
 import com.malgra.reliquary.feature.downloads.resources.downloads_pending_sync
 import com.malgra.reliquary.feature.downloads.resources.downloads_percent
 import com.malgra.reliquary.feature.downloads.resources.downloads_remove
@@ -77,6 +78,7 @@ import com.malgra.reliquary.feature.downloads.resources.downloads_remove_title
 import com.malgra.reliquary.feature.downloads.resources.downloads_rules_empty
 import com.malgra.reliquary.feature.downloads.resources.downloads_speed
 import com.malgra.reliquary.feature.downloads.resources.downloads_storage
+import com.malgra.reliquary.feature.downloads.resources.downloads_storage_limit
 import com.malgra.reliquary.feature.downloads.resources.downloads_sync_now
 import com.malgra.reliquary.feature.downloads.resources.downloads_title
 import com.malgra.reliquary.feature.downloads.resources.downloads_under_a_minute
@@ -268,7 +270,14 @@ private fun StorageMeter(storage: Storage) {
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            stringResource(
+            storage.limitBytes?.let { limit ->
+                stringResource(
+                    Res.string.downloads_storage_limit,
+                    fileSizeText(storage.usedBytes),
+                    fileSizeText(limit),
+                    fileSizeText(storage.freeBytes),
+                )
+            } ?: stringResource(
                 Res.string.downloads_storage,
                 fileSizeText(storage.usedBytes),
                 fileSizeText(storage.freeBytes),
@@ -338,6 +347,7 @@ private fun DownloadRow(
                             fileSizeText(download.totalBytes),
                         )
                         DownloadStatus.Failed -> stringResource(Res.string.downloads_failed)
+                        DownloadStatus.OverStorageLimit -> stringResource(Res.string.downloads_over_limit)
                         else -> stringResource(if (wifiOnly && wifiOnlySupported) Res.string.downloads_waiting_wifi else Res.string.downloads_waiting)
                     },
                     style = MaterialTheme.typography.bodySmall,

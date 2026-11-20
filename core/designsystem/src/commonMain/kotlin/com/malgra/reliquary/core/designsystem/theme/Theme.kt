@@ -29,6 +29,9 @@ fun ReliquaryTheme(
     )
 }
 
+/** Whether [ReliquaryTheme]'s dynamicColor can change anything here (Android 12+); Settings hides it otherwise. */
+expect val dynamicColorSupported: Boolean
+
 /** The wallpaper-based palette, or null where the platform has none. */
 @Composable
 internal expect fun dynamicColorScheme(darkTheme: Boolean): ColorScheme?

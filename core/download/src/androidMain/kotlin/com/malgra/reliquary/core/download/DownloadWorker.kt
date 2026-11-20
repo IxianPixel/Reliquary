@@ -49,6 +49,8 @@ class DownloadWorker @AssistedInject constructor(
             MediaDownloader.Outcome.Done -> Result.success()
             MediaDownloader.Outcome.Retry -> Result.retry()
             MediaDownloader.Outcome.Failed -> Result.failure()
+            // The work ends; DownloadRepository queues it again once there's room under the limit.
+            MediaDownloader.Outcome.Held -> Result.success()
         }
     }
 

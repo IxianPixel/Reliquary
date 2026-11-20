@@ -1,6 +1,7 @@
 package com.malgra.reliquary.core.download
 
 import com.malgra.reliquary.core.data.download.DownloadFiles
+import com.malgra.reliquary.core.data.download.StorageLimit
 import com.malgra.reliquary.core.database.ReliquaryDatabase
 import com.malgra.reliquary.core.model.DownloadStatus
 import javax.inject.Inject
@@ -15,6 +16,7 @@ class DownloadJob @Inject constructor(
     private val downloader: MediaDownloader,
     private val extras: DownloadExtras,
     private val files: DownloadFiles,
+    private val storageLimit: StorageLimit,
 ) {
     private val downloads = db.downloadDao()
 
@@ -38,6 +40,7 @@ class DownloadJob @Inject constructor(
         if (checkFreeSpace && files.freeBytes() < video.mediaSizeBytes - files.partial(videoId).length()) {
             return MediaDownloader.Outcome.Retry
         }
+        if (!storageLimit.reserve(videoId, video.mediaSizeBytes)) return MediaDownloader.Outcome.Held
         onStart(video.title)
 
         val outcome = downloader.download(videoId, video.mediaUrl, video.mediaSizeBytes, onProgress = onProgress)

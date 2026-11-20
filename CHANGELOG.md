@@ -32,6 +32,12 @@
   comments are now links: tap one to play from there. Chapters listed in the
   description break up the seek bar, and the current chapter's name shows
   beside the time, following the knob as you drag. (#21)
+- **Theme, dynamic colour and a storage limit.** Settings can fix the app to
+  light or dark instead of following the system, and on Android 12 and later
+  switch to your wallpaper's colours. A storage limit (5 to 100 GB, or none)
+  caps the space downloads use: a download that would go over it waits in
+  Downloads until you remove one or raise the limit. Nothing is deleted to
+  make room. (#10)
 
 ### Updated
 

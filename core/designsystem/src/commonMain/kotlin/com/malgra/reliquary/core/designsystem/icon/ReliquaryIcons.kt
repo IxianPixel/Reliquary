@@ -9,6 +9,7 @@ import com.malgra.reliquary.core.designsystem.resources.ic_check_circle
 import com.malgra.reliquary.core.designsystem.resources.ic_chevron_down
 import com.malgra.reliquary.core.designsystem.resources.ic_chevron_right
 import com.malgra.reliquary.core.designsystem.resources.ic_close
+import com.malgra.reliquary.core.designsystem.resources.ic_contrast
 import com.malgra.reliquary.core.designsystem.resources.ic_downloads
 import com.malgra.reliquary.core.designsystem.resources.ic_forward_10
 import com.malgra.reliquary.core.designsystem.resources.ic_fullscreen
@@ -20,6 +21,7 @@ import com.malgra.reliquary.core.designsystem.resources.ic_logout
 import com.malgra.reliquary.core.designsystem.resources.ic_minus
 import com.malgra.reliquary.core.designsystem.resources.ic_more_vert
 import com.malgra.reliquary.core.designsystem.resources.ic_offline
+import com.malgra.reliquary.core.designsystem.resources.ic_palette
 import com.malgra.reliquary.core.designsystem.resources.ic_pause
 import com.malgra.reliquary.core.designsystem.resources.ic_person
 import com.malgra.reliquary.core.designsystem.resources.ic_play
@@ -32,6 +34,7 @@ import com.malgra.reliquary.core.designsystem.resources.ic_server
 import com.malgra.reliquary.core.designsystem.resources.ic_settings
 import com.malgra.reliquary.core.designsystem.resources.ic_skip
 import com.malgra.reliquary.core.designsystem.resources.ic_sort
+import com.malgra.reliquary.core.designsystem.resources.ic_storage
 import com.malgra.reliquary.core.designsystem.resources.ic_subtitles
 import com.malgra.reliquary.core.designsystem.resources.ic_sync
 import com.malgra.reliquary.core.designsystem.resources.ic_theatre
@@ -73,4 +76,7 @@ object ReliquaryIcons {
     val Plus: DrawableResource = Res.drawable.ic_plus
     val Subtitles: DrawableResource = Res.drawable.ic_subtitles
     val Skip: DrawableResource = Res.drawable.ic_skip
+    val Theme: DrawableResource = Res.drawable.ic_contrast
+    val Palette: DrawableResource = Res.drawable.ic_palette
+    val Storage: DrawableResource = Res.drawable.ic_storage
 }

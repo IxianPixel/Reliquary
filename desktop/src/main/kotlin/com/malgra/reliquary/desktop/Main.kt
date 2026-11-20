@@ -2,6 +2,8 @@ package com.malgra.reliquary.desktop
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -27,6 +29,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.malgra.reliquary.core.data.AppDirectories
 import com.malgra.reliquary.core.designsystem.theme.ReliquaryTheme
+import com.malgra.reliquary.core.model.ThemeMode
+import com.malgra.reliquary.core.ui.isDark
 import com.malgra.reliquary.core.ui.viewmodel.LocalViewModelGraph
 import okio.Path.Companion.toOkioPath
 import java.awt.Desktop
@@ -81,7 +85,8 @@ fun main() {
                 LocalViewModelStoreOwner provides viewModelStore,
                 LocalViewModelGraph provides viewModels,
             ) {
-                ReliquaryTheme {
+                val themeMode by app.settings.themeMode.collectAsState(ThemeMode.System)
+                ReliquaryTheme(darkTheme = themeMode.isDark()) {
                     DesktopApp(player = app.playback.player, windowState = state, backShortcuts = backShortcuts)
                 }
             }

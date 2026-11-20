@@ -230,6 +230,9 @@ interface DownloadDao {
     @Query("SELECT * FROM download WHERE ruleId = :ruleId")
     suspend fun byRule(ruleId: String): List<DownloadEntity>
 
+    @Query("SELECT * FROM download WHERE state = :state")
+    suspend fun withState(state: String): List<DownloadEntity>
+
     @Query("SELECT videoId FROM download WHERE state = 'Completed'")
     suspend fun completedIds(): List<String>
 

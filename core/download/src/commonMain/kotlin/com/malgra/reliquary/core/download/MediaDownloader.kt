@@ -31,7 +31,8 @@ class MediaDownloader @Inject constructor(
     private val files: DownloadFiles,
     private val downloads: DownloadDao,
 ) {
-    enum class Outcome { Done, Retry, Failed }
+    /** [Held]: not started, over the storage limit; it waits, without retrying, until it's started again. */
+    enum class Outcome { Done, Retry, Failed, Held }
 
     /** [onProgress] is called about every [reportIntervalMillis] with (written, total or -1). */
     suspend fun download(

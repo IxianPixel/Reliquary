@@ -833,7 +833,7 @@ private fun DownloadButton(download: Download?, onDownload: () -> Unit, onRemove
             Icon(painterResource(ReliquaryIcons.Check), contentDescription = null, modifier = iconModifier)
             Text(stringResource(Res.string.player_downloaded), modifier = Modifier.padding(start = 8.dp))
         }
-        DownloadStatus.Queued, DownloadStatus.Downloading, DownloadStatus.Paused -> {
+        DownloadStatus.Queued, DownloadStatus.Downloading, DownloadStatus.OverStorageLimit -> {
             // The cross and the label say it: tapping cancels.
             OutlinedButton(onClick = onRemove) {
                 Icon(painterResource(ReliquaryIcons.Close), contentDescription = null, modifier = iconModifier)
