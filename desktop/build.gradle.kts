@@ -292,6 +292,8 @@ if (vlcTarget != null) {
         description = "Puts libVLC, its plugins and its licences where the app's resources are built from."
         val pluginSuffix = if (vlcTarget == "windows-x64") "_plugin.dll" else "_plugin.dylib"
         val libraries = if (vlcTarget == "windows-x64") listOf("libvlc.dll", "libvlccore.dll") else listOf("libvlc.dylib", "libvlccore.dylib")
+        // zipTree() of fetchVlc's output doesn't carry the task, so Windows would read a zip nothing had downloaded yet.
+        dependsOn(fetchVlc)
         from(vlcFiles) {
             include(libraries.map { "**/$it" } + vlcPluginNames.map { "**/lib$it$pluginSuffix" })
             if (vlcTarget == "windows-x64") eachFile { relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray()) }
