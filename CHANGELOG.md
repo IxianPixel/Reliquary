@@ -1,5 +1,72 @@
 # Changelog
 
+## v0.2.0
+
+### Added
+
+- **Add channels.** Admins can subscribe to a channel from the Channels tab by
+  pasting its YouTube link, @handle or ID, and subscribe or unsubscribe on its
+  page. Tube Archivist then queues its new videos. (#24)
+- **Channel settings.** Admins can change a channel's own settings on the
+  server from its page: page sizes for videos, shorts and live streams,
+  download format, auto delete, playlist indexing and SponsorBlock. (#26)
+- **Add playlists.** Admins can add a playlist from the Playlists tab by
+  pasting its YouTube link or ID, and subscribe or unsubscribe on its page.
+  Tube Archivist then queues its new videos. (#25)
+- **Queue.** A new tab for admins with the server's download queue: rescan
+  subscriptions, download everything or one video next, ignore or remove
+  videos, add a video, channel or playlist by link, and follow the server's
+  progress. Downloads stays for videos saved on the phone. (#23)
+- **Desktop app (in progress).** Reliquary now also runs on macOS, Windows and
+  Linux, sharing its data, sync and screens with the phone app. So far you can
+  sign in, browse your library and play videos, with the same resume,
+  progress sync and SponsorBlock skips as the phone. (#2)
+- **Desktop releases.** Each release now attaches the desktop app: a zipped
+  macOS app for Apple silicon and one for Intel, a Windows installer, a Linux
+  .deb and a portable Linux .tar.gz for other distributions, plus the libVLC
+  source the bundled player needs. The builds are
+  unsigned, so macOS asks you to right-click the app and choose Open, or run
+  `xattr -dr com.apple.quarantine Reliquary.app`, and Windows shows a
+  SmartScreen warning: choose More info, then Run anyway. (#29)
+- **Timestamps and chapters.** Timestamps in a video's description and
+  comments are now links: tap one to play from there. Chapters listed in the
+  description break up the seek bar, and the current chapter's name shows
+  beside the time, following the knob as you drag. (#21)
+- **Theme, dynamic colour and a storage limit.** Settings can fix the app to
+  light or dark instead of following the system, and on Android 12 and later
+  switch to your wallpaper's colours. A storage limit (5 to 100 GB, or none)
+  caps the space downloads use: a download that would go over it waits in
+  Downloads until you remove one or raise the limit. Nothing is deleted to
+  make room. (#10)
+
+### Updated
+
+- **Wide screens.** On tablets, foldables and wide desktop windows, Channels
+  and Playlists sit beside the channel or playlist you open. The player shows
+  the video with its details and comments below it and similar videos beside
+  it, and a theatre button widens the video to the full width. Phones in
+  portrait are unchanged. (#11)
+- **Smaller desktop download.** The macOS and Windows apps bundle only the
+  libVLC plugins the player uses, so the VLC part of the app is about 22 MB
+  instead of 91 MB. (#30)
+- **Shorts play in portrait.** On a phone, Shorts and other portrait videos
+  get a taller video in the player, and full screen fills the screen upright
+  instead of turning to landscape. Turn the phone for landscape full screen as
+  before. (#28)
+
+### Fixed
+
+- **Desktop downloads on Windows.** A finished download waits a few seconds
+  for a file that a player still has open, rather than failing. Removing a
+  download that's still open in a player leaves its file behind, and the app
+  logs it. (#31)
+- **Offline videos play on desktop.** Saved videos open in the player from
+  any folder, including paths with spaces or non-English characters.
+- **Seeking back on desktop.** Jumping back in a streamed video, from the seek
+  bar or a timestamp, no longer freezes the picture. The player now asks the
+  server for just the part it needs instead of reading the file again from the
+  start. (#33)
+
 ## v0.1.0
 
 ### Added

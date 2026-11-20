@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "com.malgra.reliquary"
         // Bumped on the release/* branch (scripts/prepare-release.py). versionCode = major * 10000 + minor * 100 + patch.
-        versionCode = 100
-        versionName = "0.1.0"
+        versionCode = 200
+        versionName = "0.2.0"
     }
 
     // Release signing, only when a keystore is given: in CI from secrets, locally from
@@ -57,6 +57,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+    implementation(project(":core:shell"))
     implementation(project(":core:sync"))
     implementation(project(":core:download"))
     implementation(project(":feature:onboarding"))
@@ -64,6 +65,7 @@ dependencies {
     implementation(project(":feature:channels"))
     implementation(project(":feature:playlists"))
     implementation(project(":feature:downloads"))
+    implementation(project(":feature:queue"))
     implementation(project(":feature:player"))
     implementation(project(":feature:search"))
     implementation(project(":feature:settings"))
@@ -72,7 +74,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.material3.navigationSuite)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)

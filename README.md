@@ -23,6 +23,21 @@ to get updates automatically.
 
 Requires Android 10 or later.
 
+## Features
+
+- Channel viewing
+- Channel adding/subscribing
+- Per channel settings (page sizes, downloads, index, & SponsorBlock)
+- Playlist support
+- Playlist adding/subscribing
+- Offline support for channels, playlists and individual videos
+- Tube Archivist download management (rescanning subscriptions and downloading videos)
+- Similar videos
+- Comments
+- Captions/Subtitles
+- Picture in Picture (PiP)
+- SponsorBlock support
+
 ## Build
 
 ```bash
@@ -31,6 +46,29 @@ Requires Android 10 or later.
 
 Needs JDK 21. A release build (`./gradlew assembleRelease`) is unsigned unless a
 keystore is set up as below.
+
+## Desktop (in progress)
+
+Reliquary also runs on macOS, Windows and Linux, sharing its data, sync and
+screens with the Android app. Run it from a checkout:
+
+```bash
+./gradlew :desktop:run
+```
+
+`./gradlew :desktop:packageMacZip` builds a zipped `.app` for the Mac you're on
+(it needs a JDK 21 with `jpackage`; Gradle downloads one if it's missing).
+Release builds are unsigned, so macOS asks you to right-click the app and choose
+Open the first time (or run `xattr -dr com.apple.quarantine Reliquary.app` after
+unzipping), and Windows shows a SmartScreen warning: choose More info, then Run
+anyway.
+
+Videos play through [libVLC](https://www.videolan.org/vlc/libvlc.html), which
+the build downloads (a pinned version, checksum-checked) and bundles with the
+macOS and Windows apps. On Linux, install your distribution's `vlc` package:
+the `.deb` pulls it in, and the portable `.tar.gz` (`./gradlew
+:desktop:packageLinuxTarGz`, for other distributions) lists the packages in its
+`README.txt`.
 
 ## Releasing
 
@@ -46,12 +84,12 @@ keystore is set up as below.
 
 The workflow needs these repository secrets:
 
-| Secret | Value |
-|---|---|
+| Secret                    | Value                                |
+| ------------------------- | ------------------------------------ |
 | `RELEASE_KEYSTORE_BASE64` | The release keystore, base64-encoded |
-| `RELEASE_STORE_PASSWORD` | The keystore's password |
-| `RELEASE_KEY_ALIAS` | The signing key's alias |
-| `RELEASE_KEY_PASSWORD` | The signing key's password |
+| `RELEASE_STORE_PASSWORD`  | The keystore's password              |
+| `RELEASE_KEY_ALIAS`       | The signing key's alias              |
+| `RELEASE_KEY_PASSWORD`    | The signing key's password           |
 
 For signed release builds on your own machine, put the same values in a
 git-ignored `app/keystore.properties` (`storeFile`, `storePassword`,
@@ -59,4 +97,5 @@ git-ignored `app/keystore.properties` (`storeFile`, `storePassword`,
 
 ## Licence
 
-[GPL-3.0-or-later](LICENSE).
+[GPL-3.0-or-later](LICENSE). The desktop app includes third-party software
+under its own licences; see [NOTICE](NOTICE).

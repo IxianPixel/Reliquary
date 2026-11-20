@@ -1,0 +1,62 @@
+# The VLC plugins the desktop player loads on macOS and Windows: one name per line, the
+# file's name between "lib" and "_plugin" (libmp4_plugin.dylib is "mp4"). A line prefixed with
+# macos: or windows: applies to that platform only. Anything not listed is left out of the bundle.
+# Subtitles are drawn by SubtitleOverlay, so no subtitle modules are needed (VlcEngine passes
+# --no-spu). Check playback of H.264, VP9 and AV1 MP4s after changing it.
+
+# Access: local files (file://, the filesystem plugin) and the loopback proxy's http:// streams.
+# https is VLC 3's HTTP/1.1 access and handles http:// too; it sends Range and seeks. Not http:
+# that's the legacy HTTP/1.0 one, which never sends Range, so every seek re-reads from byte 0 (#33).
+filesystem
+https
+
+# Demux: TA serves and we download MP4 only.
+mp4
+
+# Packetizers, which turn demuxed samples into decoder input; copy passes through tracks that need none.
+packetizer_copy
+packetizer_h264
+packetizer_av1
+packetizer_mpeg4audio
+
+# Decoders: FFmpeg (H.264, VP9, AAC, Opus), dav1d (AV1). macOS adds VideoToolbox for hardware H.264.
+avcodec
+dav1d
+opus
+macos:videotoolbox
+
+# Audio output and the mixers and resamplers between decoder and output.
+macos:auhal
+windows:mmdevice
+audio_format
+float_mixer
+integer_mixer
+ugly_resampler
+trivial_channel_mixer
+simple_channel_mixer
+# Playback rate changes; without it libVLC logs that it skipped the filter.
+scaletempo
+
+# Video output (libVLC's memory output, read by VideoFrames) and the chroma conversions to BGRA.
+vmem
+i420_rgb
+i420_nv12
+i422_i420
+i420_yuy2
+yuy2_i420
+i422_yuy2
+yuy2_i422
+i420_10_p010
+yuvp
+grey_yuv
+swscale
+rv32
+# chain joins two converters into one. Without it, VideoToolbox's CVPX frames never reach vmem.
+chain
+scale
+macos:cvpx
+
+# Stream caching, so network reads keep up with playback and seeks.
+cache_read
+cache_block
+prefetch
